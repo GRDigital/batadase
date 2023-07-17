@@ -46,7 +46,7 @@ pub fn verify(expected: semver::Version) {
 }
 
 /// If you use a single static Env, e.g.
-///
+/// ```
 /// static ENV: Lazy<Env> = Lazy::new(||
 ///    Env::builder().unwrap()
 ///        .with::<names::TableName>(&names::MODULE_PATH)
@@ -54,7 +54,7 @@ pub fn verify(expected: semver::Version) {
 ///        ...
 ///        .build().unwrap()
 /// );
-///
+/// ```
 /// you can call it'ENV' and use this macro for more convenient read/write fn without having to pass it in, e.g. just
 /// `db::try_write(move |tx| { ... }).await??`
 #[macro_export]
@@ -62,7 +62,6 @@ macro_rules! def_tx_ops {
 	() => {
 		pub fn read_tx() -> Result<::batadase::transaction::RoTxn, ::batadase::Error>  { ::batadase::transaction::read_tx(&ENV) }
 
-		// #[throws(::batadase::Error)]
 		pub async fn write<Res, Job>(job: Job) -> Result<Res, ::batadase::Error> where
 			Res: Send + 'static,
 			Job: (FnOnce(&::batadase::transaction::RwTxn) -> Res) + Send + 'static,
