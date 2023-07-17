@@ -49,6 +49,7 @@ impl Env {
 }
 
 impl EnvBuilder {
+	#[must_use]
 	pub fn with<N: DbName>(mut self, mod_path: &str) -> Self {
 		let name = &N::NAME[mod_path.len()+2..];
 		log::trace!("creating {}", unsafe { std::str::from_utf8_unchecked(name) });

@@ -5,6 +5,7 @@ use super::{DbName, Error, lmdb, env::Env};
 pub struct RoTxn(pub(super) *mut lmdb_sys::MDB_txn);
 pub struct RwTxn(pub(super) *mut lmdb_sys::MDB_txn);
 
+/// it is Sync + Send since you can't close a db after you open it
 unsafe impl Sync for RoTxn {}
 unsafe impl Send for RoTxn {}
 unsafe impl Sync for RwTxn {}
@@ -102,11 +103,11 @@ pub async fn try_write<Res, Job>(job: Job, env: &'static Env) -> anyhow::Result<
 	res?
 }
 
-// discouraged
-//
-// returning RwTxn is necessary because of lifetime issues,
-// we can use the for<'a> syntax to make it work but
-// it forbids type inference in usage sites
+/// discouraged
+///
+/// returning RwTxn is necessary because of lifetime issues,
+/// we can use the for<'a> syntax to make it work but
+/// it forbids type inference in usage sites
 #[throws]
 pub async fn write_async<Res, Job, Fut>(job: Job, env: &'static Env) -> Res where
 	Job: FnOnce(RwTxn) -> Fut,
