@@ -39,7 +39,7 @@ impl<'tx, TX, T> Table<'tx, TX, T> where
 	TX: Transaction,
 	T: rkyv::Archive,
 {
-	pub(super) fn build(tx: &'tx TX, dbi: lmdb_sys::MDB_dbi) -> Self {
+	pub fn build(tx: &'tx TX, dbi: lmdb_sys::MDB_dbi) -> Self {
 		Self { tx, dbi, _pd: PhantomData }
 	}
 

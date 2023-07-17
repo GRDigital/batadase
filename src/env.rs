@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::prelude::*;
 use std::collections::HashMap;
 
@@ -5,7 +7,7 @@ use super::{lmdb::{self, DbFlags}, DbName, Error, RoTxn, RwTxn, Transaction};
 
 pub struct Env {
 	raw_env: *mut lmdb_sys::MDB_env,
-	pub(super) dbs: HashMap<&'static [u8], lmdb_sys::MDB_dbi>,
+	pub dbs: HashMap<&'static [u8], lmdb_sys::MDB_dbi>,
 	pub(super) write_lock: tokio::sync::Mutex<()>,
 }
 
@@ -22,7 +24,7 @@ unsafe impl Sync for EnvBuilder {}
 
 impl Env {
 	#[throws]
-	pub(super) fn builder() -> EnvBuilder {
+	pub fn builder() -> EnvBuilder {
 		const MAX_DBS: u32 = 128;
 
 		#[cfg(not(test))] const PATH: &[u8] = b"db\0";
@@ -42,13 +44,13 @@ impl Env {
 		EnvBuilder { raw_env, dbs: HashMap::with_capacity(MAX_DBS as _), db_create_tx: RwTxn(lmdb::txn_begin(raw_env, 0)?) }
 	}
 
-	#[throws] pub(super) fn read_tx(&self) -> RoTxn { RoTxn(lmdb::txn_begin(self.raw_env, lmdb_sys::MDB_RDONLY)?) }
-	#[throws] pub(super) fn write_tx(&self) -> RwTxn { RwTxn(lmdb::txn_begin(self.raw_env, 0)?) }
+	#[throws] pub fn read_tx(&self) -> RoTxn { RoTxn(lmdb::txn_begin(self.raw_env, lmdb_sys::MDB_RDONLY)?) }
+	#[throws] pub fn write_tx(&self) -> RwTxn { RwTxn(lmdb::txn_begin(self.raw_env, 0)?) }
 }
 
 impl EnvBuilder {
-	pub fn with<N: DbName>(mut self, name: &str) -> Self {
-		let name = &N::NAME[name.len()+2..];
+	pub fn with<N: DbName>(mut self, mod_path: &str) -> Self {
+		let name = &N::NAME[mod_path.len()+2..];
 		log::trace!("creating {}", unsafe { std::str::from_utf8_unchecked(name) });
 		let dbi = lmdb::dbi_open(self.db_create_tx.raw(), name, N::flags() | DbFlags::Create);
 		self.dbs.insert(N::NAME, dbi);

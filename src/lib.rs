@@ -8,13 +8,13 @@ pub use env::Env;
 pub use lmdb::Error;
 pub use transaction::*;
 
-mod assoc_table;
-mod poly_table;
-mod table;
+pub mod assoc_table;
+pub mod poly_table;
+pub mod table;
 
-mod env;
-mod transaction;
-mod lmdb;
+pub mod env;
+pub mod transaction;
+pub mod lmdb;
 
 pub mod index;
 pub mod prelude;

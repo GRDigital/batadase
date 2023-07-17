@@ -1,5 +1,5 @@
 [package]
-name = "grd-db"
+name = "batadase"
 version = "0.1.0"
 edition = "2021"
 
@@ -20,3 +20,8 @@ shrinkwraprs = "0.3"
 thiserror = "1"
 error = { path = "../error" }
 libc = "0.2"
+hobo = { version = "0.3", optional = true }
+inspect = { path = "../inspect", optional = true }
+
+[features]
+inspect_control = ["hobo", "inspect"]
