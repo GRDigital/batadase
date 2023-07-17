@@ -1,5 +1,4 @@
 use fehler::{throw, throws};
-use error as shared_error;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -21,12 +20,6 @@ pub enum Error {
 	#[error("out of memory")] Oom,
 	#[error("key already exists and overwrite isn't requested")] KeyExists,
 	#[error("misc error")] Misc,
-}
-
-impl From<Error> for shared_error::Error {
-    fn from(value: Error) -> Self {
-       shared_error::Error::DbError(value.to_string())
-    }
 }
 
 #[throws]
