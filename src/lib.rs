@@ -6,6 +6,7 @@ pub use grd_utils::common_prelude::*;
 
 pub use env::Env;
 pub use lmdb::Error;
+pub use index::Index;
 pub use transaction::*;
 
 pub mod assoc_table;
