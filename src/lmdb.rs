@@ -2,7 +2,7 @@ use super::{Transaction, RwTxn};
 use std::convert::AsMut;
 use fehler::throws;
 pub use self::error::Error;
-mod error;
+pub mod error;
 
 #[enumflags2::bitflags]
 #[repr(u32)]

@@ -32,7 +32,7 @@ impl Transaction for RwTxn {
 impl Drop for RoTxn { fn drop(&mut self) { unsafe { lmdb_sys::mdb_txn_abort(self.0); } } }
 impl Drop for RwTxn { fn drop(&mut self) { unsafe { lmdb_sys::mdb_txn_abort(self.0); } } }
 
-// pub fn read_tx() -> Result<RoTxn, Error> { ENV.read_tx() }
+pub fn read_tx(env: &'static Env) -> Result<RoTxn, Error> { env.read_tx() }
 
 #[throws]
 pub async fn write<Res, Job>(job: Job, env: &'static Env) -> Res where
