@@ -7,16 +7,16 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
-rkyv = "0.7"
-grd-utils = "0.1"
 enumflags2 = "0.7"
 fehler = "1"
-tracing = "0.1"
-tokio = { version = "1", features = ["full"] }
+grd-utils = "0.1"
+libc = "0.2"
 lmdb-sys = { git = "ssh://git@github.com/GRDigital/lmdb-sys.git", rev = "87514c6" }
+rkyv = "0.7"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 shrinkwraprs = "0.3"
 thiserror = "1"
-libc = "0.2"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
 batadase-index = "1"
