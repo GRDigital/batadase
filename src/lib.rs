@@ -6,7 +6,7 @@ pub use grd_utils::common_prelude::*;
 
 pub use env::Env;
 pub use lmdb::Error;
-pub use index::Index;
+pub use batadase_index::Index;
 pub use transaction::*;
 
 pub mod assoc_table;
@@ -17,7 +17,6 @@ pub mod env;
 pub mod transaction;
 pub mod lmdb;
 
-pub mod index;
 pub mod prelude;
 
 // potentially useful relation table flavours:

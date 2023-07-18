@@ -5,5 +5,4 @@ pub use shrinkwraprs::Shrinkwrap;
 
 pub use grd_utils::common_prelude::*;
 
-pub use crate::index::Index;
-
+pub use batadase_index::Index;
