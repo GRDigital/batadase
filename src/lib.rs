@@ -1,6 +1,7 @@
 // pub use assoc_table::AssocTable;
 // pub use poly_table::PolyTable;
 // pub use table::Table;
+use std::str::FromStr;
 
 pub use grd_utils::common_prelude::*;
 
@@ -39,7 +40,8 @@ pub fn get_version() -> anyhow::Result<semver::Version> {
 	Ok(semver::Version::parse(file.trim())?)
 }
 
-pub fn verify(expected: semver::Version) {
+pub fn verify(expected: &str) {
+	let expected = semver::Version::from_str(expected).expect("Tried to verify the DB, but was not given a valid semver version;");
 	let version = get_version()
 		.expect("Failed to get DB version from file. Please ensure there is a 'version' file in the db directory with a valid semver version.");
 	assert!(version != expected, "DB version error: expected {expected}, but DB was found at {version}.");
