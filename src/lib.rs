@@ -1,3 +1,20 @@
+//! Batadase: An incredible LMDB wrapper.
+//!
+//!
+//! Note that this crate does not compile on wasm, but batadase-index does.
+//!
+//!
+//! You can use the batadase-macros crate to do make a table easier, e.g.
+//! ```
+//! #[derive(batadase_macros::DbName)]
+//! #[flags(lmdb::DbFlags::IntegerKey)]
+//! #[table(Table<'tx, TX, MyActualDataStruct>)]
+//! struct MyTable
+//! ```
+//! then use def_tx_ops below to init the db.
+
+pub struct Clients;
+
 use std::str::FromStr;
 
 pub use grd_utils::common_prelude::*;
@@ -41,14 +58,14 @@ pub fn verify(expected: &str) {
 	let expected = semver::Version::from_str(expected).expect("Tried to verify the DB, but was not given a valid semver version;");
 	let version = get_version()
 		.expect("Failed to get DB version from file. Please ensure there is a 'version' file in the db directory with a valid semver version.");
-	assert!(version != expected, "DB version error: expected {expected}, but DB was found at {version}.");
+	assert!(version == expected, "DB version error: expected {expected}, but DB was found at {version}.");
 }
 
 /// If you use a single static Env, e.g.
 /// ```
 /// static ENV: Lazy<Env> = Lazy::new(||
 ///    Env::builder().unwrap()
-///        .with::<names::TableName>(&names::MODULE_PATH)
+///        .with::<MyTable>(&MODULE_PATH)
 ///        ...
 ///        ...
 ///        .build().unwrap()
