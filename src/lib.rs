@@ -69,25 +69,29 @@ pub fn verify(expected: &str) {
 ///        .build().unwrap()
 /// );
 /// ```
-/// you can call it'ENV' and use this macro for more convenient read/write fn without having to pass it in, e.g. just
-/// `db::try_write(move |tx| { ... }).await??`
+/// you can use this macro for more convenient read/write fn without having to pass it in, e.g.
+/// ```
+/// def_tx_ops!(ENV)
+/// db::try_write(move |tx| { ... }).await??
+/// ```
 #[macro_export]
 macro_rules! def_tx_ops {
-	() => {
-		pub fn read_tx() -> Result<::batadase::transaction::RoTxn, ::batadase::Error>  { ::batadase::transaction::read_tx(&ENV) }
+	// name of your &'static Env
+	($env_name:ident) => {
+		pub fn read_tx() -> ::std::result::Result<::batadase::transaction::RoTxn, ::batadase::Error>  { ::batadase::transaction::read_tx(&$env_name) }
 
-		pub async fn write<Res, Job>(job: Job) -> Result<Res, ::batadase::Error> where
+		pub async fn write<Res, Job>(job: Job) -> ::std::result::Result<Res, ::batadase::Error> where
 			Res: Send + 'static,
 			Job: (FnOnce(&::batadase::transaction::RwTxn) -> Res) + Send + 'static,
 			{
-				::batadase::transaction::write(job, &ENV).await
+				::batadase::transaction::write(job, &$env_name).await
 			}
 
-		pub async fn try_write<Res, Job>(job: Job) -> Result<anyhow::Result<Res>, ::batadase::Error> where
+		pub async fn try_write<Res, Job>(job: Job) -> ::std::result::Result<anyhow::Result<Res>, ::batadase::Error> where
 			Res: Send + 'static,
 			Job: (FnOnce(&::batadase::transaction::RwTxn) -> anyhow::Result<Res>) + Send + 'static,
 			{
-				::batadase::transaction::try_write(job, &ENV).await
+				::batadase::transaction::try_write(job, &$env_name).await
 			}
 
 		/// discouraged
@@ -95,11 +99,11 @@ macro_rules! def_tx_ops {
 		/// returning RwTxn is necessary because of lifetime issues,
 		/// we can use the for<'a> syntax to make it work but
 		/// it forbids type inference in usage sites
-		pub async fn write_async<Res, Job, Fut>(job: Job) -> Result<Res, ::batadase::Error> where
+		pub async fn write_async<Res, Job, Fut>(job: Job) -> ::std::result::Result<Res, ::batadase::Error> where
 			Job: FnOnce(::batadase::transaction::RwTxn) -> Fut,
 			Fut: Future<Output = (::batadase::transaction::RwTxn, Res)>,
 			{
-				::batadase::transaction::write_async(job, &ENV).await
+				::batadase::transaction::write_async(job, &$env_name).await
 			}
 	}
 }
