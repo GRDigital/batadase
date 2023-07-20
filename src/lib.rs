@@ -52,8 +52,7 @@ pub fn version() -> anyhow::Result<semver::Version> {
 	Ok(semver::Version::parse(Lazy::force(&VERSION).as_ref().clone()?.trim())?)
 }
 
-pub fn verify(expected: &str) {
-	let expected = semver::Version::from_str(expected).expect("Tried to verify the DB, but was not given a valid semver version;");
+pub fn verify(expected: semver::Version) {
 	let version = version()
 		.expect("Failed to get DB version from file. Please ensure there is a 'version' file in the db directory with a valid semver version.");
 	assert!(version == expected, "DB version error: expected {expected}, but DB was found at {version}.");
