@@ -14,9 +14,9 @@
 //! then use def_tx_ops below to init the db.
 
 pub use batadase_index::Index;
-pub use batadase_macros;
+pub use batadase_macros::DbName;
 pub use env::Env;
-pub use lmdb::Error;
+pub use lmdb::{ Error, DbFlags, CursorOpFlags};
 pub use once_cell::sync::Lazy;
 pub use transaction::*;
 
