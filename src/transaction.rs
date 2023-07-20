@@ -1,5 +1,6 @@
 use fehler::throws;
-use crate::prelude::{log, Future};
+use futures::prelude::*;
+use crate::prelude::log;
 use super::{DbName, Error, lmdb, env::Env};
 
 pub struct RoTxn(pub(super) *mut lmdb_sys::MDB_txn);

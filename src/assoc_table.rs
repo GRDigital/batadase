@@ -1,4 +1,5 @@
 use super::*;
+use prelude::throws;
 use std::marker::PhantomData;
 
 pub struct AssocTable<'tx, TX, K, V> {

@@ -1,5 +1,5 @@
 use super::*;
-use prelude::Index;
+use prelude::{Index, throws};
 
 pub struct PolyTable<'tx, TX> {
 	tx: &'tx TX,

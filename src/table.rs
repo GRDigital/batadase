@@ -1,5 +1,5 @@
 use super::*;
-use prelude::Index;
+use prelude::{Index, throws};
 use std::marker::PhantomData;
 
 pub struct Table<'tx, TX, T> {
