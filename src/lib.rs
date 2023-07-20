@@ -36,6 +36,8 @@ pub mod prelude;
 // * two-way one-to-one via Indices
 // * two-way many-to-many via Indices
 
+static VERSION: Lazy<Result<String, std::io::Error>> = Lazy::new(|| std::fs::read_to_string("db/version"));
+
 type RkyvSmallSer = rkyv::ser::serializers::AllocSerializer<512>;
 
 pub trait DbName {
@@ -46,14 +48,13 @@ pub trait DbName {
 	fn flags() -> enumflags2::BitFlags<lmdb::DbFlags> { enumflags2::BitFlags::empty() }
 }
 
-pub fn get_version() -> anyhow::Result<semver::Version> {
-	let file = std::fs::read_to_string("db/version")?;
-	Ok(semver::Version::parse(file.trim())?)
+pub fn version() -> anyhow::Result<semver::Version> {
+	Ok(semver::Version::parse(Lazy::force(&VERSION).as_ref().clone()?.trim())?)
 }
 
 pub fn verify(expected: &str) {
 	let expected = semver::Version::from_str(expected).expect("Tried to verify the DB, but was not given a valid semver version;");
-	let version = get_version()
+	let version = version()
 		.expect("Failed to get DB version from file. Please ensure there is a 'version' file in the db directory with a valid semver version.");
 	assert!(version == expected, "DB version error: expected {expected}, but DB was found at {version}.");
 }
