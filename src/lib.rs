@@ -13,8 +13,6 @@
 //! ```
 //! then use def_tx_ops below to init the db.
 
-use std::str::FromStr;
-
 pub use batadase_index::Index;
 pub use batadase_macros;
 pub use env::Env;
