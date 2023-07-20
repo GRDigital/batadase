@@ -63,8 +63,8 @@ pub fn verify(expected: &str) {
 /// If you use a single static Env, e.g.
 /// ```
 /// static ENV: Lazy<Env> = Lazy::new(||
-///    Env::builder().unwrap()
-///        .with::<MyTable>(&MODULE_PATH)
+/// Env::builder(MODULE_PATH).unwrap()
+///        .with::<MyTable>()
 ///        ...
 ///        ...
 ///        .build().unwrap()

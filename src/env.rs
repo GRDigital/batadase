@@ -16,6 +16,7 @@ pub struct EnvBuilder {
 	raw_env: *mut lmdb_sys::MDB_env,
 	dbs: HashMap<&'static [u8], lmdb_sys::MDB_dbi>,
 	db_create_tx: RwTxn,
+	table_str_ident: &'static str,
 }
 
 unsafe impl Send for Env {}
@@ -25,7 +26,7 @@ unsafe impl Sync for EnvBuilder {}
 
 impl Env {
 	#[throws]
-	pub fn builder() -> EnvBuilder {
+	pub fn builder(table_str_ident: &'static str) -> EnvBuilder {
 		const MAX_DBS: u32 = 128;
 
 		#[cfg(not(test))] const PATH: &[u8] = b"db\0";
@@ -42,7 +43,7 @@ impl Env {
 		// 0664 is permissions for db folder on Unix - read/write/not execute
 		lmdb::env_open(raw_env, PATH, flags, 664)?;
 
-		EnvBuilder { raw_env, dbs: HashMap::with_capacity(MAX_DBS as _), db_create_tx: RwTxn(lmdb::txn_begin(raw_env, 0)?) }
+		EnvBuilder { raw_env, dbs: HashMap::with_capacity(MAX_DBS as _), db_create_tx: RwTxn(lmdb::txn_begin(raw_env, 0)?), table_str_ident }
 	}
 
 	#[throws] pub fn read_tx(&self) -> RoTxn { RoTxn(lmdb::txn_begin(self.raw_env, lmdb_sys::MDB_RDONLY)?) }
@@ -183,8 +184,8 @@ impl Env {
 
 impl EnvBuilder {
 	#[must_use]
-	pub fn with<N: DbName>(mut self, mod_path: &str) -> Self {
-		let name = &N::NAME[mod_path.len()+2..];
+	pub fn with<N: DbName>(mut self) -> Self {
+		let name = &N::NAME[self.table_str_ident.len()+2..];
 		log::trace!("creating {}", unsafe { std::str::from_utf8_unchecked(name) });
 		let dbi = lmdb::dbi_open(self.db_create_tx.raw(), name, N::flags() | DbFlags::Create);
 		self.dbs.insert(N::NAME, dbi);
