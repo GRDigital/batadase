@@ -21,6 +21,7 @@ pub use env::Env;
 pub use lmdb::Error;
 pub use batadase_index::Index;
 pub use transaction::*;
+pub use batadase_macros;
 
 pub mod assoc_table;
 pub mod poly_table;
