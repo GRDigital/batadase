@@ -69,29 +69,30 @@ pub fn verify(expected: &str) {
 ///        .build().unwrap()
 /// );
 /// ```
-/// you can use this macro for more convenient read/write fn without having to pass it in, e.g.
+/// you can use this macro for more convenient (?) global read/write fns, e.g.
 /// ```
 /// def_tx_ops!(ENV)
+///
 /// db::try_write(move |tx| { ... }).await??
 /// ```
 #[macro_export]
 macro_rules! def_tx_ops {
 	// name of your &'static Env
 	($env_name:ident) => {
-		pub fn read_tx() -> ::std::result::Result<::batadase::transaction::RoTxn, ::batadase::Error>  { ::batadase::transaction::read_tx(&$env_name) }
+		pub fn read_tx() -> ::std::result::Result<::batadase::transaction::RoTxn, ::batadase::Error>  { $env_name.read_tx() }
 
 		pub async fn write<Res, Job>(job: Job) -> ::std::result::Result<Res, ::batadase::Error> where
 			Res: Send + 'static,
 			Job: (FnOnce(&::batadase::transaction::RwTxn) -> Res) + Send + 'static,
 			{
-				::batadase::transaction::write(job, &$env_name).await
+				$env_name.write(job).await
 			}
 
 		pub async fn try_write<Res, Job>(job: Job) -> ::std::result::Result<anyhow::Result<Res>, ::batadase::Error> where
 			Res: Send + 'static,
 			Job: (FnOnce(&::batadase::transaction::RwTxn) -> anyhow::Result<Res>) + Send + 'static,
 			{
-				::batadase::transaction::try_write(job, &$env_name).await
+				$env_name.try_write(job).await
 			}
 
 		/// discouraged
@@ -103,7 +104,7 @@ macro_rules! def_tx_ops {
 			Job: FnOnce(::batadase::transaction::RwTxn) -> Fut,
 			Fut: Future<Output = (::batadase::transaction::RwTxn, Res)>,
 			{
-				::batadase::transaction::write_async(job, &$env_name).await
+				$env_name.write_async(job).await
 			}
 	}
 }
