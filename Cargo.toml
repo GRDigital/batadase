@@ -17,7 +17,7 @@ serde_json = "1"
 shrinkwraprs = "0.3"
 thiserror = "1"
 tokio = { version = "1", features = ["full"] }
-tracing = "0.1"
 batadase-index = "1"
 semver = "1"
 futures = "0.3"
+log = "0.4"

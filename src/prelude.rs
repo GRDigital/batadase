@@ -1,4 +1,4 @@
-pub use tracing as log;
+pub use log;
 pub use fehler::throws;
 pub use serde::{Deserialize, Serialize};
 pub use shrinkwraprs::Shrinkwrap;
