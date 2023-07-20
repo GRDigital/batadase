@@ -16,7 +16,7 @@
 pub use batadase_index::Index;
 pub use batadase_macros::DbName;
 pub use env::Env;
-pub use lmdb::{ Error, DbFlags, CursorOpFlags};
+pub use lmdb::{Error, DbFlags, CursorOpFlags};
 pub use once_cell::sync::Lazy;
 pub use transaction::*;
 
