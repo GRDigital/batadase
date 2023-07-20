@@ -13,23 +13,21 @@
 //! ```
 //! then use def_tx_ops below to init the db.
 
-pub struct Clients;
-
 use std::str::FromStr;
 
+pub use batadase_index::Index;
+pub use batadase_macros;
 pub use env::Env;
 pub use lmdb::Error;
-pub use batadase_index::Index;
+pub use once_cell::sync::Lazy;
 pub use transaction::*;
-pub use batadase_macros;
 
 pub mod assoc_table;
+pub mod env;
+pub mod lmdb;
 pub mod poly_table;
 pub mod table;
-
-pub mod env;
 pub mod transaction;
-pub mod lmdb;
 
 pub mod prelude;
 
