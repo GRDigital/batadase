@@ -77,7 +77,7 @@ impl<T> std::string::ToString for Index<T> {
 }
 
 impl<T> std::cmp::PartialOrd for Index<T> {
-	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> { self.0.partial_cmp(&other.0) }
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> { Some(self.cmp(other)) }
 }
 
 impl<T> std::cmp::Ord for Index<T> {
