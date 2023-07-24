@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-#![feature(proc_macro_span)]
 
 use proc_quote::quote;
 
