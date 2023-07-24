@@ -2,6 +2,11 @@
 name = "batadase-macros"
 version = "1.0.0"
 edition = "2021"
+license = "MIT"
+repository = "https://github.com/GRDigital/batadase"
+description = "batadase is an incredible LMDB wrapper"
+authors = ["GR Digital <contact@grdigital.co.uk>"]
+readme = "../README.md"
 
 [lib]
 proc-macro = true
