@@ -34,8 +34,6 @@ pub mod prelude;
 // * two-way one-to-one via Indices
 // * two-way many-to-many via Indices
 
-static VERSION: Lazy<Result<String, std::io::Error>> = Lazy::new(|| std::fs::read_to_string("db/version"));
-
 type RkyvSmallSer = rkyv::ser::serializers::AllocSerializer<512>;
 
 pub trait DbName {
@@ -46,13 +44,16 @@ pub trait DbName {
 	fn flags() -> enumflags2::BitFlags<lmdb::DbFlags> { enumflags2::BitFlags::empty() }
 }
 
-pub fn version() -> anyhow::Result<semver::Version> {
-	Ok(semver::Version::parse(Lazy::force(&VERSION).as_ref().clone()?.trim())?)
+pub fn version() -> semver::Version {
+	static VERSION: Lazy<String> = Lazy::new(|| std::fs::read_to_string("db/version")
+		.expect("Failed to get DB version from file. Please ensure there is a 'version' file in the db directory with a valid semver version.")
+	);
+
+	semver::Version::parse(VERSION.trim()).expect("Can't parse version")
 }
 
 pub fn verify(expected: semver::Version) {
-	let version = version()
-		.expect("Failed to get DB version from file. Please ensure there is a 'version' file in the db directory with a valid semver version.");
+	let version = version();
 	assert!(version == expected, "DB version error: expected {expected}, but DB was found at {version}.");
 }
 
@@ -79,18 +80,14 @@ macro_rules! def_tx_ops {
 		pub fn read_tx() -> ::std::result::Result<::batadase::transaction::RoTxn, ::batadase::Error>  { $env_name.read_tx() }
 
 		pub async fn write<Res, Job>(job: Job) -> ::std::result::Result<Res, ::batadase::Error> where
-			Res: Send + 'static,
-			Job: (FnOnce(&::batadase::transaction::RwTxn) -> Res) + Send + 'static,
-			{
-				$env_name.write(job).await
-			}
+			Res: ::std::marker::Send + 'static,
+			Job: (::std::ops::FnOnce(&::batadase::transaction::RwTxn) -> Res) + ::std::marker::Send + 'static,
+		{ $env_name.write(job).await }
 
 		pub async fn try_write<Res, Job>(job: Job) -> ::std::result::Result<anyhow::Result<Res>, ::batadase::Error> where
-			Res: Send + 'static,
-			Job: (FnOnce(&::batadase::transaction::RwTxn) -> anyhow::Result<Res>) + Send + 'static,
-			{
-				$env_name.try_write(job).await
-			}
+			Res: ::std::marker::Send + 'static,
+			Job: (::std::ops::FnOnce(&::batadase::transaction::RwTxn) -> anyhow::Result<Res>) + ::std::marker::Send + 'static,
+		{ $env_name.try_write(job).await }
 
 		/// discouraged
 		///
@@ -98,10 +95,8 @@ macro_rules! def_tx_ops {
 		/// we can use the for<'a> syntax to make it work but
 		/// it forbids type inference in usage sites
 		pub async fn write_async<Res, Job, Fut>(job: Job) -> ::std::result::Result<Res, ::batadase::Error> where
-			Job: FnOnce(::batadase::transaction::RwTxn) -> Fut,
-			Fut: Future<Output = (::batadase::transaction::RwTxn, Res)>,
-			{
-				$env_name.write_async(job).await
-			}
+			Job: ::std::ops::FnOnce(::batadase::transaction::RwTxn) -> Fut,
+			Fut: ::std::future::Future<Output = (::batadase::transaction::RwTxn, Res)>,
+		{ $env_name.write_async(job).await }
 	}
 }
