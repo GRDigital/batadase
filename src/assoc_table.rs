@@ -34,7 +34,7 @@ impl<'tx, TX, K, V> AssocTable<'tx, TX, K, V> where
 	K: rkyv::Archive + rkyv::Serialize<RkyvSmallSer>,
 	V: rkyv::Archive,
 {
-	pub(super) fn build(tx: &'tx TX, dbi: lmdb_sys::MDB_dbi) -> Self { Self { tx, dbi, _pd: PhantomData } }
+	pub fn build(tx: &'tx TX, dbi: lmdb_sys::MDB_dbi) -> Self { Self { tx, dbi, _pd: PhantomData } }
 
 	#[throws]
 	pub fn get(&self, key: &K) -> Option<&'tx rkyv::Archived<V>> {

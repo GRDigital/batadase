@@ -38,7 +38,7 @@ impl<'tx> PolyTable<'tx, RwTxn> {
 impl<'tx, TX> PolyTable<'tx, TX> where
 	TX: Transaction,
 {
-	pub(super) fn build(tx: &'tx TX, dbi: lmdb_sys::MDB_dbi) -> Self { Self { tx, dbi } }
+	pub fn build(tx: &'tx TX, dbi: lmdb_sys::MDB_dbi) -> Self { Self { tx, dbi } }
 
 	#[throws]
 	pub fn get<T>(&self, index: Index<T>) -> Option<&'tx rkyv::Archived<T>> where

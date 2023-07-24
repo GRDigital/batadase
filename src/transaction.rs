@@ -1,6 +1,16 @@
 use fehler::throws;
 use super::{DbName, Error, lmdb};
 
+// The third Triagon was born of Death. It saw that the world was radiating excess energy.
+// It wanted to put great things into motion. But greatness wasn't possible without value. The first transaction.
+//
+// It took its blade and cut a large hole into the boundary, creating a sudden flash of high volume transactional power.
+// And just for a moment things seeped value into themselves, assuming souls. The second transaction.
+//
+// The hole was quickly mended, and the overpowering transmission of value was cut short.
+// But in that moment the seed of primordial financial might was planted, and the world took on its transactional form.
+// Conflict and discord emerged, and the third Triagon was ecstatic. The third transaction.
+
 pub struct RoTxn(pub(super) *mut lmdb_sys::MDB_txn);
 pub struct RwTxn(pub(super) *mut lmdb_sys::MDB_txn);
 
