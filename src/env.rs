@@ -80,6 +80,7 @@ impl Env {
 
 	// outer result is whether DB ops failed or not,
 	// inner result is whether the job failed or not
+	// the tx isn't committed if the job fails
 	//
 	// should probably just be a Result<Res, Err> but
 	// it requires all jobs to specify return type
