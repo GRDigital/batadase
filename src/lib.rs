@@ -5,7 +5,7 @@
 //!
 //!
 //! You can use the batadase-macros crate to do make a table easier, e.g.
-//! ```
+//! ```ignore
 //! #[derive(batadase_macros::DbName)]
 //! #[flags(lmdb::DbFlags::IntegerKey)]
 //! #[table(Table<'tx, TX, MyActualDataStruct>)]
@@ -58,7 +58,7 @@ pub fn verify(expected: semver::Version) {
 }
 
 /// If you use a single static Env, e.g.
-/// ```
+/// ```ignore
 /// static ENV: Lazy<Env> = Lazy::new(||
 /// Env::builder(MODULE_PATH).unwrap()
 ///        .with::<MyTable>()
@@ -68,7 +68,7 @@ pub fn verify(expected: semver::Version) {
 /// );
 /// ```
 /// you can use this macro for more convenient (?) global read/write fns, e.g.
-/// ```
+/// ```ignore
 /// def_tx_ops!(ENV)
 ///
 /// db::try_write(move |tx| { ... }).await??
