@@ -85,9 +85,10 @@ impl Env {
 	// should probably just be a Result<Res, Err> but
 	// it requires all jobs to specify return type
 	#[throws]
-	pub async fn try_write<Res, Job>(&'static self, job: Job) -> anyhow::Result<Res> where
+	pub async fn try_write<Res, Err, Job>(&'static self, job: Job) -> Result<Res, Err> where
 		Res: Send + 'static,
-		Job: (FnOnce(&RwTxn) -> anyhow::Result<Res>) + Send + 'static,
+		Job: (FnOnce(&RwTxn) -> Result<Res, Err>) + Send + 'static,
+		Err: Send + 'static,
 		{
 			let _lock = self.write_lock.lock().await;
 			let now = std::time::Instant::now();

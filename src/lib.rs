@@ -84,9 +84,10 @@ macro_rules! def_tx_ops {
 			Job: (::std::ops::FnOnce(&::batadase::transaction::RwTxn) -> Res) + ::std::marker::Send + 'static,
 		{ $env_name.write(job).await }
 
-		pub async fn try_write<Res, Job>(job: Job) -> ::std::result::Result<anyhow::Result<Res>, ::batadase::Error> where
+		pub async fn try_write<Res, Err, Job>(job: Job) -> ::std::result::Result<::std::result::Result<Res, Err>, ::batadase::Error> where
 			Res: ::std::marker::Send + 'static,
-			Job: (::std::ops::FnOnce(&::batadase::transaction::RwTxn) -> anyhow::Result<Res>) + ::std::marker::Send + 'static,
+			Job: (::std::ops::FnOnce(&::batadase::transaction::RwTxn) -> ::std::result::Result<Res, Err>) + ::std::marker::Send + 'static,
+			Err: ::std::marker::Send + 'static,
 		{ $env_name.try_write(job).await }
 
 		/// discouraged
