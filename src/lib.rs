@@ -52,9 +52,9 @@ pub fn version() -> semver::Version {
 	semver::Version::parse(VERSION.trim()).expect("Can't parse version")
 }
 
-pub fn verify(expected: semver::Version) {
+pub fn verify(expected: &semver::Version) {
 	let version = version();
-	assert!(version == expected, "DB version error: expected {expected}, but DB was found at {version}.");
+	assert!(version == *expected, "DB version error: expected {expected}, but DB was found at {version}.");
 }
 
 /// If you use a single static Env, e.g.
