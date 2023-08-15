@@ -11,7 +11,7 @@ impl<T> rkyv::Archive for Index<T> {
 	type Resolver = ();
 
 	#[inline]
-	unsafe fn resolve(&self, _: usize, _: (), out: *mut Self::Archived) {
+	unsafe fn resolve(&self, _: usize, (): (), out: *mut Self::Archived) {
 		out.write(*self);
 	}
 }
