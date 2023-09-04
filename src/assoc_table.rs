@@ -35,8 +35,8 @@ impl<'tx, TX, K, V> AssocTable<'tx, TX, K, V> where
 	V: rkyv::Archive,
 {
 	pub fn build(tx: &'tx TX, dbi: lmdb_sys::MDB_dbi) -> Self {
-		assert_eq!(std::mem::align_of::<K>(), 8, "AssocTable Key types must be 8-byte aligned");
-		assert_eq!(std::mem::align_of::<V>(), 8, "AssocTable Value types must be 8-byte aligned");
+		assert_eq!(std::mem::align_of::<K::Archived>(), 8, "AssocTable Key archived types must be 8-byte aligned, but {} is not", std::any::type_name::<K>());
+		assert_eq!(std::mem::align_of::<V::Archived>(), 8, "AssocTable Value archived types must be 8-byte aligned, but {} is not", std::any::type_name::<V>());
 		Self { tx, dbi, _pd: PhantomData }
 	}
 

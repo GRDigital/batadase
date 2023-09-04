@@ -40,7 +40,7 @@ impl<'tx, TX, T> Table<'tx, TX, T> where
 	T: rkyv::Archive,
 {
 	pub fn build(tx: &'tx TX, dbi: lmdb_sys::MDB_dbi) -> Self {
-		assert_eq!(std::mem::align_of::<T>(), 8, "Table Value types must be 8-byte aligned");
+		assert_eq!(std::mem::align_of::<T::Archived>(), 8, "Table Value archived types must be 8-byte aligned, but {} is not", std::any::type_name::<T>());
 		Self { tx, dbi, _pd: PhantomData }
 	}
 

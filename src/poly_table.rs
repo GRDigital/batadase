@@ -11,7 +11,7 @@ impl<'tx> PolyTable<'tx, RwTxn> {
 	pub fn put<T>(&self, index: Index<T>, t: &T) where
 		T: rkyv::Archive + rkyv::Serialize<RkyvSmallSer>,
 	{
-		assert_eq!(std::mem::align_of::<T>(), 8, "All PolyTable Value types must be 8-byte aligned");
+		assert_eq!(std::mem::align_of::<T::Archived>(), 8, "All PolyTable Value archived types must be 8-byte aligned, but {} is not", std::any::type_name::<T>());
 		let mut index_bytes = u64::from(index).to_ne_bytes();
 		let mut value_bytes = rkyv::to_bytes(t).unwrap();
 		lmdb::put(self.tx, self.dbi, &mut index_bytes, &mut value_bytes)?
