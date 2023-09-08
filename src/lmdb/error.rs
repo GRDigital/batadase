@@ -23,7 +23,7 @@ pub enum Error {
 }
 
 #[throws]
-pub fn handle_del_code(code: i32) -> bool {
+pub(crate) fn handle_del_code(code: i32) -> bool {
 	match code {
 		lmdb_sys::MDB_SUCCESS => true,
 		lmdb_sys::MDB_NOTFOUND => false,
@@ -34,7 +34,7 @@ pub fn handle_del_code(code: i32) -> bool {
 }
 
 #[throws]
-pub fn handle_put_code(code: i32) {
+pub(crate) fn handle_put_code(code: i32) {
 	match code {
 		lmdb_sys::MDB_SUCCESS => {},
 		lmdb_sys::MDB_MAP_FULL => throw!(Error::MapFull),
@@ -47,7 +47,7 @@ pub fn handle_put_code(code: i32) {
 }
 
 #[throws]
-pub fn handle_drop_code(code: i32) {
+pub(crate) fn handle_drop_code(code: i32) {
 	match code {
 		lmdb_sys::MDB_SUCCESS => {},
 		_ => throw!(Error::Misc),
@@ -55,7 +55,7 @@ pub fn handle_drop_code(code: i32) {
 }
 
 #[throws]
-pub fn handle_get_code(code: i32) -> bool {
+pub(crate) fn handle_get_code(code: i32) -> bool {
 	match code {
 		lmdb_sys::MDB_SUCCESS => true,
 		lmdb_sys::MDB_NOTFOUND => false,
@@ -65,7 +65,7 @@ pub fn handle_get_code(code: i32) -> bool {
 }
 
 #[throws]
-pub fn handle_cursor_open_code(code: i32) {
+pub(crate) fn handle_cursor_open_code(code: i32) {
 	match code {
 		lmdb_sys::MDB_SUCCESS => {},
 		libc::EINVAL => throw!(Error::InvalidParameter),
@@ -73,7 +73,7 @@ pub fn handle_cursor_open_code(code: i32) {
 	}
 }
 
-pub fn handle_cursor_get_code(code: i32) -> bool {
+pub(crate) fn handle_cursor_get_code(code: i32) -> bool {
 	match code {
 		lmdb_sys::MDB_SUCCESS => true,
 		lmdb_sys::MDB_NOTFOUND => false,
@@ -83,7 +83,7 @@ pub fn handle_cursor_get_code(code: i32) -> bool {
 }
 
 #[throws]
-pub fn handle_txn_begin_code(code: i32) {
+pub(crate) fn handle_txn_begin_code(code: i32) {
 	match code {
 		lmdb_sys::MDB_SUCCESS => {},
 		lmdb_sys::MDB_PANIC => fehler::throw!(Error::Panic),
@@ -95,7 +95,7 @@ pub fn handle_txn_begin_code(code: i32) {
 }
 
 #[throws]
-pub fn handle_txn_commit_code(code: i32) {
+pub(crate) fn handle_txn_commit_code(code: i32) {
 	match code {
 		lmdb_sys::MDB_SUCCESS => {},
 		libc::EINVAL => fehler::throw!(Error::InvalidParameter),
@@ -107,7 +107,7 @@ pub fn handle_txn_commit_code(code: i32) {
 }
 
 #[throws]
-pub fn handle_env_create_code(code: i32) {
+pub(crate) fn handle_env_create_code(code: i32) {
 	match code {
 		lmdb_sys::MDB_SUCCESS => {},
 		e => fehler::throw!(Error::CreateError(e)),
@@ -115,7 +115,7 @@ pub fn handle_env_create_code(code: i32) {
 }
 
 #[throws]
-pub fn handle_env_set_maxdbs_code(code: i32) {
+pub(crate) fn handle_env_set_maxdbs_code(code: i32) {
 	match code {
 		lmdb_sys::MDB_SUCCESS => {},
 		_ => fehler::throw!(Error::InvalidParameter),
@@ -123,7 +123,7 @@ pub fn handle_env_set_maxdbs_code(code: i32) {
 }
 
 #[throws]
-pub fn handle_env_set_mapsize_code(code: i32) {
+pub(crate) fn handle_env_set_mapsize_code(code: i32) {
 	match code {
 		lmdb_sys::MDB_SUCCESS => {},
 		_ => fehler::throw!(Error::InvalidParameter),
@@ -131,7 +131,15 @@ pub fn handle_env_set_mapsize_code(code: i32) {
 }
 
 #[throws]
-pub fn handle_env_open(code: i32) {
+pub(crate) fn handle_env_set_maxreaders_code(code: i32) {
+	match code {
+		lmdb_sys::MDB_SUCCESS => {},
+		_ => fehler::throw!(Error::InvalidParameter),
+	}
+}
+
+#[throws]
+pub(crate) fn handle_env_open(code: i32) {
 	match code {
 		lmdb_sys::MDB_SUCCESS => {},
 		lmdb_sys::MDB_VERSION_MISMATCH => fehler::throw!(Error::VersionMismatch),
@@ -143,7 +151,7 @@ pub fn handle_env_open(code: i32) {
 	}
 }
 
-pub fn handle_dbi_open_code(code: i32) {
+pub(crate) fn handle_dbi_open_code(code: i32) {
 	match code {
 		lmdb_sys::MDB_SUCCESS => {},
 		lmdb_sys::MDB_NOTFOUND => panic!("not found"), // should be unreachable

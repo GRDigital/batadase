@@ -99,5 +99,55 @@ macro_rules! def_tx_ops {
 			Job: ::std::ops::FnOnce(::batadase::transaction::RwTxn) -> Fut,
 			Fut: ::std::future::Future<Output = (::batadase::transaction::RwTxn, Res)>,
 		{ $env_name.write_async(job).await }
-	}
+	};
+
+	($env_name:ident, $err:ty) => {
+		pub fn read_tx() -> ::std::result::Result<::batadase::transaction::RoTxn, ::batadase::Error>  { $env_name.read_tx() }
+
+		pub async fn write<Res, Job>(job: Job) -> ::std::result::Result<Res, ::batadase::Error> where
+			Res: ::std::marker::Send + 'static,
+			Job: (::std::ops::FnOnce(&::batadase::transaction::RwTxn) -> Res) + ::std::marker::Send + 'static,
+		{ $env_name.write(job).await }
+
+		pub async fn try_write<Res, Job>(job: Job) -> ::std::result::Result<::std::result::Result<Res, $err>, ::batadase::Error> where
+			Res: ::std::marker::Send + 'static,
+			Job: (::std::ops::FnOnce(&::batadase::transaction::RwTxn) -> ::std::result::Result<Res, $err>) + ::std::marker::Send + 'static,
+		{ $env_name.try_write(job).await }
+
+		/// discouraged
+		///
+		/// returning RwTxn is necessary because of lifetime issues,
+		/// we can use the for<'a> syntax to make it work but
+		/// it forbids type inference in usage sites
+		pub async fn write_async<Res, Job, Fut>(job: Job) -> ::std::result::Result<Res, ::batadase::Error> where
+			Job: ::std::ops::FnOnce(::batadase::transaction::RwTxn) -> Fut,
+			Fut: ::std::future::Future<Output = (::batadase::transaction::RwTxn, Res)>,
+		{ $env_name.write_async(job).await }
+	};
+
+	// the only error most people should really care about is read_tx's ReadersFull
+	// atm it's 4096 max read transactions at once, which should be enough
+	(unwrapped $env_name:ident, $err:ty) => {
+		pub fn read_tx() -> ::batadase::transaction::RoTxn { $env_name.read_tx().unwrap() }
+
+		pub async fn write<Res, Job>(job: Job) -> Res where
+			Res: ::std::marker::Send + 'static,
+			Job: (::std::ops::FnOnce(&::batadase::transaction::RwTxn) -> Res) + ::std::marker::Send + 'static,
+		{ $env_name.write(job).await.unwrap() }
+
+		pub async fn try_write<Res, Job>(job: Job) -> ::std::result::Result<Res, $err> where
+			Res: ::std::marker::Send + 'static,
+			Job: (::std::ops::FnOnce(&::batadase::transaction::RwTxn) -> ::std::result::Result<Res, $err>) + ::std::marker::Send + 'static,
+		{ $env_name.try_write(job).await.unwrap() }
+
+		/// discouraged
+		///
+		/// returning RwTxn is necessary because of lifetime issues,
+		/// we can use the for<'a> syntax to make it work but
+		/// it forbids type inference in usage sites
+		pub async fn write_async<Res, Job, Fut>(job: Job) -> Res where
+			Job: ::std::ops::FnOnce(::batadase::transaction::RwTxn) -> Fut,
+			Fut: ::std::future::Future<Output = (::batadase::transaction::RwTxn, Res)>,
+		{ $env_name.write_async(job).await.unwrap() }
+	};
 }

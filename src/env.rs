@@ -23,6 +23,7 @@ unsafe impl Sync for Env {}
 unsafe impl Send for EnvBuilder {}
 unsafe impl Sync for EnvBuilder {}
 
+// TODO: maxdbs, mapsize, maxreaders, path should be configurable
 impl Env {
 	#[throws]
 	pub fn builder() -> EnvBuilder {
@@ -39,10 +40,20 @@ impl Env {
 		let raw_env = lmdb::env_create()?;
 		lmdb::env_set_maxdbs(raw_env, MAX_DBS)?;
 		lmdb::env_set_mapsize(raw_env, 1 << 36)?; // 64 gb
+		lmdb::env_set_maxreaders(raw_env, 1 << 12)?; // 4096
 		// 0664 is permissions for db folder on Unix - read/write/not execute
 		lmdb::env_open(raw_env, PATH, flags, 664)?;
 
 		EnvBuilder { raw_env, dbs: HashMap::with_capacity(MAX_DBS as _), db_create_tx: RwTxn(lmdb::txn_begin(raw_env, 0)?) }
+	}
+
+	pub fn reader_list(&self) {
+		unsafe extern "C" fn msg(msg: *const libc::c_char, _: *mut libc::c_void) -> i32 {
+			let cstr = std::ffi::CStr::from_ptr(msg);
+			println!("{}", cstr.to_string_lossy());
+			0
+		}
+		unsafe { lmdb_sys::mdb_reader_list(self.raw_env, Some(msg), std::ptr::null_mut()) };
 	}
 
 	#[throws] pub fn read_tx(&self) -> RoTxn { RoTxn(lmdb::txn_begin(self.raw_env, lmdb_sys::MDB_RDONLY)?) }

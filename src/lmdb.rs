@@ -169,6 +169,11 @@ pub(super) fn env_set_mapsize(env: *mut lmdb_sys::MDB_env, mapsize: usize) {
 	error::handle_env_set_mapsize_code(unsafe { lmdb_sys::mdb_env_set_mapsize(env, mapsize) })?;
 }
 
+#[throws]
+pub(super) fn env_set_maxreaders(env: *mut lmdb_sys::MDB_env, maxreaders: u32) {
+	error::handle_env_set_maxreaders_code(unsafe { lmdb_sys::mdb_env_set_maxreaders(env, maxreaders) })?;
+}
+
 #[allow(unused_variables)]
 #[throws]
 pub(super) fn env_open(env: *mut lmdb_sys::MDB_env, path: &[u8], flags: u32, mode: u32) {
