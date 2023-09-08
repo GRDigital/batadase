@@ -1,8 +1,7 @@
 use std::marker::PhantomData;
-pub use serde::{Deserialize, Serialize};
 use shrinkwraprs::Shrinkwrap;
 
-#[derive(Serialize, Deserialize, Shrinkwrap)]
+#[derive(serde::Serialize, serde::Deserialize, Shrinkwrap)]
 #[serde(transparent)]
 pub struct Index<T>(#[shrinkwrap(main_field)] u64, #[serde(skip)] PhantomData<T>);
 
