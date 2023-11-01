@@ -5,6 +5,12 @@ use shrinkwraprs::Shrinkwrap;
 #[serde(transparent)]
 pub struct Index<T>(#[shrinkwrap(main_field)] u64, #[serde(skip)] PhantomData<T>);
 
+impl<T> Index<T> {
+	pub fn into<Y>(self) -> Index<Y> {
+		u64::from(self).into()
+	}
+}
+
 impl<T> rkyv::Archive for Index<T> {
 	type Archived = Index<T>;
 	type Resolver = ();
