@@ -52,6 +52,10 @@ pub fn version() -> semver::Version {
 	semver::Version::parse(VERSION.trim()).expect("Can't parse version")
 }
 
+pub fn set_version(version: semver::Version) -> std::io::Result<()> {
+	std::fs::write("db/version", version.to_string())
+}
+
 pub fn verify(expected: &semver::Version) {
 	let version = version();
 	assert!(version == *expected, "DB version error: expected {expected}, but DB was found at {version}.");
