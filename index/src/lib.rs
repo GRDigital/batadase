@@ -75,8 +75,8 @@ impl<T> std::hash::Hash for Index<T> {
 
 impl<T> Copy for Index<T> {}
 
-impl<T> std::string::ToString for Index<T> {
-	fn to_string(&self) -> String { self.0.to_string() }
+impl<T> std::fmt::Display for Index<T> {
+	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result { <Self as std::fmt::Debug>::fmt(self, f) }
 }
 
 impl<T> std::cmp::PartialOrd for Index<T> {
