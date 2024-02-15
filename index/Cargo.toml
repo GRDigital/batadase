@@ -9,9 +9,9 @@ authors = ["GR Digital <contact@grdigital.co.uk>"]
 readme = "../README.md"
 
 [dependencies]
+rkyv = "0.7"
 serde = { version = "1", features = ["derive"] }
 shrinkwraprs = "0.3"
-rkyv = "0.7"
 
 [lints]
 workspace = true
