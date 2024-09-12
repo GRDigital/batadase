@@ -23,7 +23,7 @@ pub fn derive_db_name(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 		}
 	}
 
-	let flags = flags.map_or_else(|| quote!(), |x| quote!(fn flags() -> ::enumflags2::BitFlags<::batadase::lmdb::DbFlags> { #x.into() }));
+	let flags = flags.map_or_else(|| quote!(), |x| quote!(fn flags() -> ::batadase::enumflags2::BitFlags<::batadase::lmdb::DbFlags> { #x.into() }));
 	let db_name = db_name.map_or_else(|| quote!(&::std::concat!(::std::module_path!(), "::", ::std::stringify!(#name), "\0").as_bytes()), |x| quote!(#x));//syn::LitByteStr::new(format!("{}\0", name).as_bytes(), name.span()));
 
 	quote!(

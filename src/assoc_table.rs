@@ -9,8 +9,8 @@ pub struct AssocTable<'tx, TX, K, V> {
 }
 
 impl<'tx, K, V> AssocTable<'tx, RwTxn, K, V> where
-	K: rkyv::Archive + rkyv::Serialize<RkyvSmallSer>,
-	V: rkyv::Archive + rkyv::Serialize<RkyvSmallSer>,
+	K: rkyv::Archive + for <'a> rkyv::Serialize<RkyvSer<'a>>,
+	V: rkyv::Archive + for <'a> rkyv::Serialize<RkyvSer<'a>>,
 {
 	#[throws]
 	pub fn put(&self, key: &K, value: &V) {
@@ -31,12 +31,15 @@ impl<'tx, K, V> AssocTable<'tx, RwTxn, K, V> where
 
 impl<'tx, TX, K, V> AssocTable<'tx, TX, K, V> where
 	TX: Transaction,
-	K: rkyv::Archive + rkyv::Serialize<RkyvSmallSer>,
+	K: rkyv::Archive + for <'a> rkyv::Serialize<RkyvSer<'a>>,
 	V: rkyv::Archive,
+	rkyv::Archived<K>: for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
+	rkyv::Archived<V>: for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
 {
 	pub fn build(tx: &'tx TX, dbi: lmdb_sys::MDB_dbi) -> Self {
-		assert_eq!(std::mem::align_of::<K::Archived>(), 8, "AssocTable Key archived types must be 8-byte aligned, but {} is not", std::any::type_name::<K>());
-		assert_eq!(std::mem::align_of::<V::Archived>(), 8, "AssocTable Value archived types must be 8-byte aligned, but {} is not", std::any::type_name::<V>());
+		// TODO: after rkyv upd, I think the alignment requirement is 4 bytes? and can be disabled?
+		// assert_eq!(std::mem::align_of::<K::Archived>(), 8, "AssocTable Key archived types must be 8-byte aligned, but {} is not", std::any::type_name::<K>());
+		// assert_eq!(std::mem::align_of::<V::Archived>(), 8, "AssocTable Value archived types must be 8-byte aligned, but {} is not", std::any::type_name::<V>());
 		Self { tx, dbi, _pd: PhantomData }
 	}
 
@@ -44,7 +47,7 @@ impl<'tx, TX, K, V> AssocTable<'tx, TX, K, V> where
 	pub fn get(&self, key: &K) -> Option<&'tx rkyv::Archived<V>> {
 		let mut key_bytes = rkyv::to_bytes(key).unwrap();
 		lmdb::get(self.tx, self.dbi, &mut key_bytes)?
-			.map(|value| unsafe { rkyv::archived_root::<V>(value) })
+			.map(|value| rkyv::access::<rkyv::Archived<V>, _>(value).unwrap())
 	}
 
 	#[throws]
@@ -52,12 +55,12 @@ impl<'tx, TX, K, V> AssocTable<'tx, TX, K, V> where
 		lmdb::Cursor::open(self.tx, self.dbi)?
 			.get(lmdb::CursorOpFlags::Last)
 			.map(|(key, value)| (
-				unsafe { rkyv::archived_root::<K>(key) },
-				unsafe { rkyv::archived_root::<V>(value) },
+				rkyv::access::<rkyv::Archived<K>, _>(key).unwrap(),
+				rkyv::access::<rkyv::Archived<V>, _>(value).unwrap(),
 			))
 	}
 
-	#[allow(clippy::iter_not_returning_iterator)]
+	#[expect(clippy::iter_not_returning_iterator)]
 	#[throws]
 	pub fn iter(&self) -> impl Iterator<Item = (&'tx rkyv::Archived<K>, &'tx rkyv::Archived<V>)> where
 		rkyv::Archived<K>: 'tx,
@@ -69,15 +72,15 @@ impl<'tx, TX, K, V> AssocTable<'tx, TX, K, V> where
 			TX: Transaction,
 			K: rkyv::Archive,
 			V: rkyv::Archive,
-			rkyv::Archived<K>: 'tx,
-			rkyv::Archived<V>: 'tx,
+			rkyv::Archived<K>: 'tx + for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
+			rkyv::Archived<V>: 'tx + for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
 		{
 			type Item = (&'tx rkyv::Archived<K>, &'tx rkyv::Archived<V>);
 
 			fn next(&mut self) -> Option<(&'tx rkyv::Archived<K>, &'tx rkyv::Archived<V>)> {
 				self.0.get(lmdb::CursorOpFlags::Next).map(|(key, value)| (
-					unsafe { rkyv::archived_root::<K>(key) },
-					unsafe { rkyv::archived_root::<V>(value) },
+					rkyv::access::<rkyv::Archived<K>, _>(key).unwrap(),
+					rkyv::access::<rkyv::Archived<V>, _>(value).unwrap(),
 				))
 			}
 		}

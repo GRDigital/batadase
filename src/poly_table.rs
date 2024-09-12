@@ -9,7 +9,7 @@ pub struct PolyTable<'tx, TX> {
 impl<'tx> PolyTable<'tx, RwTxn> {
 	#[throws]
 	pub fn put<T>(&self, index: Index<T>, t: &T) where
-		T: rkyv::Archive + rkyv::Serialize<RkyvSmallSer>,
+		T: rkyv::Archive + for <'a> rkyv::Serialize<RkyvSer<'a>>,
 	{
 		assert_eq!(std::mem::align_of::<T::Archived>(), 8, "All PolyTable Value archived types must be 8-byte aligned, but {} is not", std::any::type_name::<T>());
 		let mut index_bytes = u64::from(index).to_ne_bytes();
@@ -19,7 +19,7 @@ impl<'tx> PolyTable<'tx, RwTxn> {
 
 	#[throws]
 	pub fn put_last<T>(&self, t: &T) -> Index<T> where
-		T: rkyv::Archive + rkyv::Serialize<RkyvSmallSer>,
+		T: rkyv::Archive + for <'a> rkyv::Serialize<RkyvSer<'a>>,
 	{
 		let index = Index::from(self.last_numeric_index()?.map_or(0, |x| x + 1));
 		self.put(index, t)?;
@@ -47,7 +47,7 @@ impl<'tx, TX> PolyTable<'tx, TX> where
 	{
 		let mut index_bytes = u64::from(index).to_ne_bytes();
 		lmdb::get(self.tx, self.dbi, &mut index_bytes)?
-			.map(|value| unsafe { rkyv::archived_root::<T>(value) })
+			.map(|value| unsafe { rkyv::access_unchecked::<rkyv::Archived<T>>(value) })
 	}
 
 	#[throws]

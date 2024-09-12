@@ -19,6 +19,7 @@ pub use env::Env;
 pub use lmdb::{Error, DbFlags, CursorOpFlags};
 pub use once_cell::sync::Lazy;
 pub use transaction::*;
+pub use enumflags2;
 
 pub mod assoc_table;
 pub mod env;
@@ -34,7 +35,8 @@ pub mod prelude;
 // * two-way one-to-one via Indices
 // * two-way many-to-many via Indices
 
-type RkyvSmallSer = rkyv::ser::serializers::AllocSerializer<512>;
+type RkyvSer<'a> = rkyv::api::high::HighSerializer<'a, rkyv::util::AlignedVec, rkyv::ser::allocator::ArenaHandle<'a>, rkyv::rancor::Error>;
+type RkyvVal<'a> = rkyv::api::high::HighValidator<'a, rkyv::rancor::Error>;
 
 pub trait DbName {
 	type Table<'tx, TX: Transaction>;

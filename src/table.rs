@@ -9,7 +9,7 @@ pub struct Table<'tx, TX, T> {
 }
 
 impl<'tx, T> Table<'tx, RwTxn, T> where
-	T: rkyv::Serialize<RkyvSmallSer>,
+	T: for <'a> rkyv::Serialize<RkyvSer<'a>>,
 {
 	#[throws]
 	pub fn put(&self, index: Index<T>, t: &T) {
@@ -48,7 +48,7 @@ impl<'tx, TX, T> Table<'tx, TX, T> where
 	pub fn get(&self, index: Index<T>) -> Option<&'tx rkyv::Archived<T>> {
 		let mut index_bytes = u64::from(index).to_ne_bytes();
 		lmdb::get(self.tx, self.dbi, &mut index_bytes)?
-			.map(|value| unsafe { rkyv::archived_root::<T>(value) })
+			.map(|value| unsafe { rkyv::access_unchecked::<rkyv::Archived<T>>(value) })
 	}
 
 	#[throws]
@@ -57,7 +57,7 @@ impl<'tx, TX, T> Table<'tx, TX, T> where
 			.get_with_u64_key(lmdb::CursorOpFlags::Last)
 			.map(|(key, value)| (
 				Index::from(key),
-				unsafe { rkyv::archived_root::<T>(value) },
+				unsafe { rkyv::access_unchecked::<rkyv::Archived<T>>(value) },
 			))
 	}
 
@@ -78,7 +78,7 @@ impl<'tx, TX, T> Table<'tx, TX, T> where
 			fn next(&mut self) -> Option<(Index<T>, &'tx rkyv::Archived<T>)> {
 				self.0.get_with_u64_key(lmdb::CursorOpFlags::Next).map(|(key, value)| (
 					Index::from(key),
-					unsafe { rkyv::archived_root::<T>(value) },
+					unsafe { rkyv::access_unchecked::<rkyv::Archived<T>>(value) },
 				))
 			}
 		}

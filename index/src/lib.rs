@@ -5,6 +5,10 @@ use shrinkwraprs::Shrinkwrap;
 #[serde(transparent)]
 pub struct Index<T>(#[shrinkwrap(main_field)] u64, #[serde(skip)] PhantomData<T>);
 
+#[derive(rkyv::Portable)]
+#[repr(transparent)]
+pub struct ArchivedIndex<T>(<u64 as rkyv::Archive>::Archived, PhantomData<T>);
+
 impl<T> Index<T> {
 	pub fn into<Y>(self) -> Index<Y> {
 		u64::from(self).into()
@@ -12,23 +16,23 @@ impl<T> Index<T> {
 }
 
 impl<T> rkyv::Archive for Index<T> {
-	type Archived = Index<T>;
+	type Archived = ArchivedIndex<T>;
 	type Resolver = ();
 
 	#[inline]
-	unsafe fn resolve(&self, _: usize, (): (), out: *mut Self::Archived) {
-		out.write(*self);
+	fn resolve(&self, (): (), out: rkyv::Place<Self::Archived>) {
+		unsafe { out.write_unchecked(ArchivedIndex(<u64 as rkyv::Archive>::Archived::from_native(self.0), PhantomData)) };
 	}
 }
 
-impl<D: rkyv::Fallible + ?Sized, T> rkyv::Deserialize<Index<T>, D> for rkyv::Archived<Index<T>> {
+impl<D: rkyv::rancor::Fallible + ?Sized, T> rkyv::Deserialize<Index<T>, D> for ArchivedIndex<T> {
 	#[inline]
-	fn deserialize(&self, _: &mut D) -> Result<Index<T>, D::Error> {
-		Ok(*self)
+	fn deserialize(&self, deserializer: &mut D) -> Result<Index<T>, D::Error> {
+		Ok(Index(rkyv::Deserialize::deserialize(&self.0, deserializer)?, PhantomData))
 	}
 }
 
-impl<S: rkyv::Fallible + ?Sized, T> rkyv::Serialize<S> for Index<T> {
+impl<S: rkyv::rancor::Fallible + ?Sized, T> rkyv::Serialize<S> for Index<T> {
 	#[inline]
 	fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
 		rkyv::Serialize::serialize(&self.0, serializer)
