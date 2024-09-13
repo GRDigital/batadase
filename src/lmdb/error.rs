@@ -19,6 +19,7 @@ pub enum Error {
 	#[error("a low-level I/O error occured while writing")] Io,
 	#[error("out of memory")] Oom,
 	#[error("key already exists and overwrite isn't requested")] KeyExists,
+	#[error("unsupported size of key/DB name/data, or wrong DUPFIXED size")] BadValSize,
 	#[error("misc error {0}")] Misc(i32),
 }
 
@@ -40,6 +41,7 @@ pub(crate) fn handle_put_code(code: i32) {
 		lmdb_sys::MDB_MAP_FULL => throw!(Error::MapFull),
 		lmdb_sys::MDB_TXN_FULL => throw!(Error::TxnFull),
 		lmdb_sys::MDB_KEYEXIST => throw!(Error::KeyExists),
+		lmdb_sys::MDB_BAD_VALSIZE => throw!(Error::BadValSize),
 		libc::EACCES => throw!(Error::TxnPerm),
 		libc::EINVAL => throw!(Error::InvalidParameter),
 		code => throw!(Error::Misc(code)),
