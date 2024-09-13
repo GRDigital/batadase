@@ -15,8 +15,6 @@ impl<'tx, K, V> AssocTable<'tx, RwTxn, K, V> where
 	#[throws]
 	pub fn put(&self, key: &K, value: &V) {
 		let mut key_bytes = rkyv::to_bytes(key).unwrap();
-		// TODO: temp until https://github.com/rkyv/rend/issues/13 is closed
-		while key_bytes.len() < key_bytes.capacity() { key_bytes.push(0); }
 		let mut value_bytes = rkyv::to_bytes(value).unwrap();
 		lmdb::put(self.tx, self.dbi, &mut key_bytes, &mut value_bytes)?
 	}
@@ -24,8 +22,6 @@ impl<'tx, K, V> AssocTable<'tx, RwTxn, K, V> where
 	#[throws]
 	pub fn delete(&self, key: &K) -> bool {
 		let mut key_bytes = rkyv::to_bytes(key).unwrap();
-		// TODO: temp until https://github.com/rkyv/rend/issues/13 is closed
-		while key_bytes.len() < key_bytes.capacity() { key_bytes.push(0); }
 		lmdb::del(self.tx, self.dbi, &mut key_bytes)?
 	}
 
@@ -47,8 +43,6 @@ impl<'tx, TX, K, V> AssocTable<'tx, TX, K, V> where
 	#[throws]
 	pub fn get(&self, key: &K) -> Option<&'tx rkyv::Archived<V>> {
 		let mut key_bytes = rkyv::to_bytes(key).unwrap();
-		// TODO: temp until https://github.com/rkyv/rend/issues/13 is closed
-		while key_bytes.len() < key_bytes.capacity() { key_bytes.push(0); }
 		lmdb::get(self.tx, self.dbi, &mut key_bytes)?
 			.map(|value| rkyv::access::<rkyv::Archived<V>, _>(value).unwrap())
 	}
@@ -82,8 +76,7 @@ impl<'tx, TX, K, V> AssocTable<'tx, TX, K, V> where
 
 			fn next(&mut self) -> Option<(&'tx rkyv::Archived<K>, &'tx rkyv::Archived<V>)> {
 				self.0.get(lmdb::CursorOpFlags::Next).map(|(key, value)| (
-					// TODO: temp until https://github.com/rkyv/rend/issues/13 is closed
-					rkyv::access::<rkyv::Archived<K>, _>(&key[0..std::mem::size_of::<rkyv::Archived<K>>()]).unwrap(),
+					rkyv::access::<rkyv::Archived<K>, _>(key).unwrap(),
 					rkyv::access::<rkyv::Archived<V>, _>(value).unwrap(),
 				))
 			}
@@ -110,8 +103,7 @@ impl<'tx, TX, K, V> AssocTable<'tx, TX, K, V> where
 
 			fn next(&mut self) -> Option<(&'tx rkyv::Archived<K>, &'tx rkyv::Archived<V>)> {
 				self.0.get(lmdb::CursorOpFlags::Prev).map(|(key, value)| (
-					// TODO: temp until https://github.com/rkyv/rend/issues/13 is closed
-					rkyv::access::<rkyv::Archived<K>, _>(&key[0..std::mem::size_of::<rkyv::Archived<K>>()]).unwrap(),
+					rkyv::access::<rkyv::Archived<K>, _>(key).unwrap(),
 					rkyv::access::<rkyv::Archived<V>, _>(value).unwrap(),
 				))
 			}

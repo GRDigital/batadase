@@ -10,7 +10,7 @@ pub mod error;
 pub enum DbFlags {
 	ReverseKey = lmdb_sys::MDB_REVERSEKEY, // keys compared in reverse order
 	IntegerKey = lmdb_sys::MDB_INTEGERKEY, // keys are binary integers in native byte order (u32 [C unsigned int] or usize [C size_t]), all must be same size
-	Create = lmdb_sys::MDB_CREATE,         // create db if it doesnt' exist, only write tx
+	Create = lmdb_sys::MDB_CREATE,         // create db if it doesn't exist, only write tx
 
 	DupSort = lmdb_sys::MDB_DUPSORT, // allow duplicate keys, stored in sorted order
 		DupFixed = lmdb_sys::MDB_DUPFIXED,     // all values are same size
