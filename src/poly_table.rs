@@ -44,10 +44,11 @@ impl<'tx, TX> PolyTable<'tx, TX> where
 	#[throws]
 	pub fn get<T>(&self, index: Index<T>) -> Option<&'tx rkyv::Archived<T>> where
 		T: rkyv::Archive,
+		rkyv::Archived<T>: for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
 	{
 		let mut index_bytes = u64::from(index).to_ne_bytes();
 		lmdb::get(self.tx, self.dbi, &mut index_bytes)?
-			.map(|value| unsafe { rkyv::access_unchecked::<rkyv::Archived<T>>(value) })
+			.map(|value| rkyv::access::<rkyv::Archived<T>, _>(value).unwrap())
 	}
 
 	#[throws]

@@ -10,6 +10,7 @@ pub struct Table<'tx, TX, T> {
 
 impl<'tx, T> Table<'tx, RwTxn, T> where
 	T: for <'a> rkyv::Serialize<RkyvSer<'a>>,
+	rkyv::Archived<T>: for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
 {
 	#[throws]
 	pub fn put(&self, index: Index<T>, t: &T) {
@@ -38,9 +39,9 @@ impl<'tx, T> Table<'tx, RwTxn, T> where
 impl<'tx, TX, T> Table<'tx, TX, T> where
 	TX: Transaction,
 	T: rkyv::Archive,
+	rkyv::Archived<T>: for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
 {
 	pub fn build(tx: &'tx TX, dbi: lmdb_sys::MDB_dbi) -> Self {
-		assert_eq!(std::mem::align_of::<T::Archived>(), 8, "Table Value archived types must be 8-byte aligned, but {} is not", std::any::type_name::<T>());
 		Self { tx, dbi, _pd: PhantomData }
 	}
 
@@ -48,7 +49,7 @@ impl<'tx, TX, T> Table<'tx, TX, T> where
 	pub fn get(&self, index: Index<T>) -> Option<&'tx rkyv::Archived<T>> {
 		let mut index_bytes = u64::from(index).to_ne_bytes();
 		lmdb::get(self.tx, self.dbi, &mut index_bytes)?
-			.map(|value| unsafe { rkyv::access_unchecked::<rkyv::Archived<T>>(value) })
+			.map(|value| rkyv::access::<rkyv::Archived<T>, _>(value).unwrap())
 	}
 
 	#[throws]
@@ -57,28 +58,28 @@ impl<'tx, TX, T> Table<'tx, TX, T> where
 			.get_with_u64_key(lmdb::CursorOpFlags::Last)
 			.map(|(key, value)| (
 				Index::from(key),
-				unsafe { rkyv::access_unchecked::<rkyv::Archived<T>>(value) },
+				rkyv::access::<rkyv::Archived<T>, _>(value).unwrap(),
 			))
 	}
 
-	#[allow(clippy::iter_not_returning_iterator)]
+	#[expect(clippy::iter_not_returning_iterator)]
 	#[throws]
 	pub fn iter(&self) -> impl Iterator<Item = (Index<T>, &'tx rkyv::Archived<T>)> where
-		rkyv::Archived<T>: 'tx,
+		rkyv::Archived<T>: 'tx + for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
 	{
 		struct Cursor<'tx, TX: Transaction, T>(lmdb::Cursor<'tx, TX>, PhantomData<T>);
 
 		impl<'tx, TX, T> Iterator for Cursor<'tx, TX, T> where
 			TX: Transaction,
 			T: rkyv::Archive,
-			rkyv::Archived<T>: 'tx,
+			rkyv::Archived<T>: 'tx + for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
 		{
 			type Item = (Index<T>, &'tx rkyv::Archived<T>);
 
 			fn next(&mut self) -> Option<(Index<T>, &'tx rkyv::Archived<T>)> {
 				self.0.get_with_u64_key(lmdb::CursorOpFlags::Next).map(|(key, value)| (
 					Index::from(key),
-					unsafe { rkyv::access_unchecked::<rkyv::Archived<T>>(value) },
+					rkyv::access::<rkyv::Archived<T>, _>(value).unwrap(),
 				))
 			}
 		}
