@@ -19,7 +19,7 @@ pub enum Error {
 	#[error("a low-level I/O error occured while writing")] Io,
 	#[error("out of memory")] Oom,
 	#[error("key already exists and overwrite isn't requested")] KeyExists,
-	#[error("misc error")] Misc,
+	#[error("misc error {0}")] Misc(i32),
 }
 
 #[throws]
@@ -29,7 +29,7 @@ pub(crate) fn handle_del_code(code: i32) -> bool {
 		lmdb_sys::MDB_NOTFOUND => false,
 		libc::EACCES => throw!(Error::TxnPerm),
 		libc::EINVAL => throw!(Error::InvalidParameter),
-		_ => throw!(Error::Misc),
+		code => throw!(Error::Misc(code)),
 	}
 }
 
@@ -42,7 +42,7 @@ pub(crate) fn handle_put_code(code: i32) {
 		lmdb_sys::MDB_KEYEXIST => throw!(Error::KeyExists),
 		libc::EACCES => throw!(Error::TxnPerm),
 		libc::EINVAL => throw!(Error::InvalidParameter),
-		_ => throw!(Error::Misc),
+		code => throw!(Error::Misc(code)),
 	}
 }
 
@@ -50,7 +50,7 @@ pub(crate) fn handle_put_code(code: i32) {
 pub(crate) fn handle_drop_code(code: i32) {
 	match code {
 		lmdb_sys::MDB_SUCCESS => {},
-		_ => throw!(Error::Misc),
+		code => throw!(Error::Misc(code)),
 	}
 }
 
@@ -60,7 +60,7 @@ pub(crate) fn handle_get_code(code: i32) -> bool {
 		lmdb_sys::MDB_SUCCESS => true,
 		lmdb_sys::MDB_NOTFOUND => false,
 		libc::EINVAL => throw!(Error::InvalidParameter),
-		_ => throw!(Error::Misc),
+		code => throw!(Error::Misc(code)),
 	}
 }
 
@@ -69,7 +69,7 @@ pub(crate) fn handle_cursor_open_code(code: i32) {
 	match code {
 		lmdb_sys::MDB_SUCCESS => {},
 		libc::EINVAL => throw!(Error::InvalidParameter),
-		_ => throw!(Error::Misc),
+		code => throw!(Error::Misc(code)),
 	}
 }
 
@@ -90,7 +90,7 @@ pub(crate) fn handle_txn_begin_code(code: i32) {
 		lmdb_sys::MDB_MAP_RESIZED => fehler::throw!(Error::MapResized),
 		lmdb_sys::MDB_READERS_FULL => fehler::throw!(Error::ReadersFull),
 		libc::ENOMEM => fehler::throw!(Error::Oom),
-		_ => fehler::throw!(Error::Misc),
+		code => fehler::throw!(Error::Misc(code)),
 	}
 }
 
@@ -102,7 +102,7 @@ pub(crate) fn handle_txn_commit_code(code: i32) {
 		libc::ENOSPC => fehler::throw!(Error::NoDiskSpace),
 		libc::EIO => fehler::throw!(Error::Io),
 		libc::ENOMEM => fehler::throw!(Error::Oom),
-		_ => fehler::throw!(Error::Misc),
+		code => fehler::throw!(Error::Misc(code)),
 	}
 }
 
@@ -147,7 +147,7 @@ pub(crate) fn handle_env_open(code: i32) {
 		libc::ENOENT | libc::ESRCH => fehler::throw!(Error::DirDoesntExist),
 		libc::EACCES => fehler::throw!(Error::NoAccess),
 		libc::EAGAIN => fehler::throw!(Error::EnvLocked),
-		_ => fehler::throw!(Error::Misc),
+		code => fehler::throw!(Error::Misc(code)),
 	}
 }
 
