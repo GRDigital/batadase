@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 
 pub struct AssocTable<'tx, TX, K, V> {
 	tx: &'tx TX,
-	dbi: lmdb_sys::MDB_dbi,
+	pub dbi: lmdb_sys::MDB_dbi,
 	_pd: PhantomData<(K, V)>,
 }
 
