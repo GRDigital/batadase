@@ -188,3 +188,13 @@ pub(super) fn dbi_open(tx: *mut sys::MDB_txn, name: &[u8], flags: enumflags2::Bi
 	error::handle_dbi_open_code(unsafe { sys::mdb_dbi_open(tx, name.as_ptr().cast(), flags.bits(), &mut dbi) });
 	dbi
 }
+
+pub trait MdbValExt {
+	fn as_slice(&self) -> &[u8];
+}
+
+impl MdbValExt for lmdb_sys::MDB_val {
+	fn as_slice(&self) -> &[u8] {
+		unsafe { std::slice::from_raw_parts(self.mv_data.cast::<u8>(), self.mv_size) }
+	}
+}
