@@ -190,11 +190,12 @@ pub(super) fn dbi_open(tx: *mut sys::MDB_txn, name: &[u8], flags: enumflags2::Bi
 }
 
 pub trait MdbValExt {
-	fn as_slice(&self) -> &[u8];
+	#[expect(clippy::missing_safety_doc)]
+	unsafe fn as_slice(&self) -> &[u8];
 }
 
 impl MdbValExt for lmdb_sys::MDB_val {
-	fn as_slice(&self) -> &[u8] {
-		unsafe { std::slice::from_raw_parts(self.mv_data.cast::<u8>(), self.mv_size) }
+	unsafe fn as_slice(&self) -> &[u8] {
+		std::slice::from_raw_parts(self.mv_data.cast::<u8>(), self.mv_size)
 	}
 }
