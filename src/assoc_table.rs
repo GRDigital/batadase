@@ -8,6 +8,7 @@ pub struct AssocTable<'tx, TX, K, V> {
 	_pd: PhantomData<(K, V)>,
 }
 
+// RwTxn only, so all methods mutate
 impl<'tx, K, V> AssocTable<'tx, RwTxn, K, V> where
 	K: rkyv::Archive + for <'a> rkyv::Serialize<RkyvSer<'a>>,
 	V: rkyv::Archive + for <'a> rkyv::Serialize<RkyvSer<'a>>,
@@ -29,6 +30,7 @@ impl<'tx, K, V> AssocTable<'tx, RwTxn, K, V> where
 	pub fn clear(&self) { lmdb::drop(self.tx, self.dbi)? }
 }
 
+// both RoTxn and RwTxn, so all methods are read-only
 impl<'tx, TX, K, V> AssocTable<'tx, TX, K, V> where
 	TX: Transaction,
 	K: rkyv::Archive + for <'a> rkyv::Serialize<RkyvSer<'a>>,
