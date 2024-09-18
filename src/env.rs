@@ -180,14 +180,12 @@ impl Env {
 impl EnvBuilder {
 	#[throws]
 	pub fn mapsize(self, size: usize) -> Self {
-		// lmdb::env_set_mapsize(raw_env, 1 << 32)?; // 4 gb
 		lmdb::env_set_mapsize(self.raw_env, size)?;
 		self
 	}
 
 	#[throws]
 	pub fn maxreaders(self, readers: u32) -> Self {
-		// lmdb::env_set_maxreaders(raw_env, 1 << 10)?; // 1024
 		lmdb::env_set_maxreaders(self.raw_env, readers)?;
 		self
 	}

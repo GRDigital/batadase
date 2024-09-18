@@ -35,7 +35,7 @@ pub mod prelude;
 // * two-way one-to-one via Indices
 // * two-way many-to-many via Indices
 
-type RkyvSer<'a> = rkyv::api::high::HighSerializer<'a, rkyv::util::AlignedVec, rkyv::ser::allocator::ArenaHandle<'a>, rkyv::rancor::Error>;
+type RkyvSer<'a> = rkyv::api::high::HighSerializer<rkyv::util::AlignedVec, rkyv::ser::allocator::ArenaHandle<'a>, rkyv::rancor::Error>;
 type RkyvVal<'a> = rkyv::api::high::HighValidator<'a, rkyv::rancor::Error>;
 
 pub trait DbName {
