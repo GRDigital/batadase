@@ -1,4 +1,4 @@
-use fehler::{throw, throws};
+use culpa::{throw, throws};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -88,11 +88,11 @@ pub(crate) fn handle_cursor_get_code(code: i32) -> bool {
 pub(crate) fn handle_txn_begin_code(code: i32) {
 	match code {
 		lmdb_sys::MDB_SUCCESS => {},
-		lmdb_sys::MDB_PANIC => fehler::throw!(Error::Panic),
-		lmdb_sys::MDB_MAP_RESIZED => fehler::throw!(Error::MapResized),
-		lmdb_sys::MDB_READERS_FULL => fehler::throw!(Error::ReadersFull),
-		libc::ENOMEM => fehler::throw!(Error::Oom),
-		code => fehler::throw!(Error::Misc(code)),
+		lmdb_sys::MDB_PANIC => culpa::throw!(Error::Panic),
+		lmdb_sys::MDB_MAP_RESIZED => culpa::throw!(Error::MapResized),
+		lmdb_sys::MDB_READERS_FULL => culpa::throw!(Error::ReadersFull),
+		libc::ENOMEM => culpa::throw!(Error::Oom),
+		code => culpa::throw!(Error::Misc(code)),
 	}
 }
 
@@ -100,11 +100,11 @@ pub(crate) fn handle_txn_begin_code(code: i32) {
 pub(crate) fn handle_txn_commit_code(code: i32) {
 	match code {
 		lmdb_sys::MDB_SUCCESS => {},
-		libc::EINVAL => fehler::throw!(Error::InvalidParameter),
-		libc::ENOSPC => fehler::throw!(Error::NoDiskSpace),
-		libc::EIO => fehler::throw!(Error::Io),
-		libc::ENOMEM => fehler::throw!(Error::Oom),
-		code => fehler::throw!(Error::Misc(code)),
+		libc::EINVAL => culpa::throw!(Error::InvalidParameter),
+		libc::ENOSPC => culpa::throw!(Error::NoDiskSpace),
+		libc::EIO => culpa::throw!(Error::Io),
+		libc::ENOMEM => culpa::throw!(Error::Oom),
+		code => culpa::throw!(Error::Misc(code)),
 	}
 }
 
@@ -112,7 +112,7 @@ pub(crate) fn handle_txn_commit_code(code: i32) {
 pub(crate) fn handle_env_create_code(code: i32) {
 	match code {
 		lmdb_sys::MDB_SUCCESS => {},
-		e => fehler::throw!(Error::CreateError(e)),
+		e => culpa::throw!(Error::CreateError(e)),
 	}
 }
 
@@ -120,7 +120,7 @@ pub(crate) fn handle_env_create_code(code: i32) {
 pub(crate) fn handle_env_set_maxdbs_code(code: i32) {
 	match code {
 		lmdb_sys::MDB_SUCCESS => {},
-		_ => fehler::throw!(Error::InvalidParameter),
+		_ => culpa::throw!(Error::InvalidParameter),
 	}
 }
 
@@ -128,7 +128,7 @@ pub(crate) fn handle_env_set_maxdbs_code(code: i32) {
 pub(crate) fn handle_env_set_mapsize_code(code: i32) {
 	match code {
 		lmdb_sys::MDB_SUCCESS => {},
-		_ => fehler::throw!(Error::InvalidParameter),
+		_ => culpa::throw!(Error::InvalidParameter),
 	}
 }
 
@@ -136,7 +136,7 @@ pub(crate) fn handle_env_set_mapsize_code(code: i32) {
 pub(crate) fn handle_env_set_maxreaders_code(code: i32) {
 	match code {
 		lmdb_sys::MDB_SUCCESS => {},
-		_ => fehler::throw!(Error::InvalidParameter),
+		_ => culpa::throw!(Error::InvalidParameter),
 	}
 }
 
@@ -144,12 +144,12 @@ pub(crate) fn handle_env_set_maxreaders_code(code: i32) {
 pub(crate) fn handle_env_open(code: i32) {
 	match code {
 		lmdb_sys::MDB_SUCCESS => {},
-		lmdb_sys::MDB_VERSION_MISMATCH => fehler::throw!(Error::VersionMismatch),
-		lmdb_sys::MDB_INVALID => fehler::throw!(Error::Corrupted),
-		libc::ENOENT | libc::ESRCH => fehler::throw!(Error::DirDoesntExist),
-		libc::EACCES => fehler::throw!(Error::NoAccess),
-		libc::EAGAIN => fehler::throw!(Error::EnvLocked),
-		code => fehler::throw!(Error::Misc(code)),
+		lmdb_sys::MDB_VERSION_MISMATCH => culpa::throw!(Error::VersionMismatch),
+		lmdb_sys::MDB_INVALID => culpa::throw!(Error::Corrupted),
+		libc::ENOENT | libc::ESRCH => culpa::throw!(Error::DirDoesntExist),
+		libc::EACCES => culpa::throw!(Error::NoAccess),
+		libc::EAGAIN => culpa::throw!(Error::EnvLocked),
+		code => culpa::throw!(Error::Misc(code)),
 	}
 }
 
@@ -159,5 +159,14 @@ pub(crate) fn handle_dbi_open_code(code: i32) {
 		lmdb_sys::MDB_NOTFOUND => panic!("not found"), // should be unreachable
 		lmdb_sys::MDB_DBS_FULL => panic!("too many dbs"),
 		e => panic!("misc error {e}"),
+	}
+}
+
+#[throws]
+pub(crate) fn handle_stat_code(code: i32) {
+	match code {
+		lmdb_sys::MDB_SUCCESS => {},
+		libc::EINVAL => culpa::throw!(Error::InvalidParameter),
+		code => culpa::throw!(Error::Misc(code)),
 	}
 }

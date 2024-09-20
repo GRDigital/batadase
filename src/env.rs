@@ -1,16 +1,13 @@
-#![allow(dead_code)]
-
 use futures::prelude::*;
 use crate::prelude::*;
 use std::collections::HashMap;
 
-use super::{lmdb::{self, DbFlags}, DbName, Error, RoTxn, RwTxn, Transaction};
+use super::{lmdb::{self, DbFlags}, DbName, RoTxn, RwTxn, Transaction, error::Error, Table};
 
 pub struct Env {
 	raw_env: *mut lmdb_sys::MDB_env,
-	pub dbs: HashMap<&'static [u8], lmdb_sys::MDB_dbi>,
-	// TODO: mutex consists of a semaphore and unsafecell, so we should replace this with a semaphore
-	pub(super) write_lock: tokio::sync::Mutex<()>,
+	dbs: HashMap<&'static [u8], lmdb_sys::MDB_dbi>,
+	write_sema: tokio::sync::Semaphore,
 }
 
 pub struct EnvBuilder {
@@ -23,11 +20,35 @@ unsafe impl Sync for Env {}
 unsafe impl Send for EnvBuilder {}
 unsafe impl Sync for EnvBuilder {}
 
-// TODO: maxdbs, mapsize, maxreaders, path should be configurable
+pub trait WriteCallback<'tx, T>: FnOnce(&'tx RwTxn) -> Self::Fut {
+    type Fut: Future<Output = T>;
+}
+
+impl<'tx, T, Out, F> WriteCallback<'tx, T> for F where
+	Out: Future<Output = T>,
+	F: FnOnce(&'tx RwTxn) -> Out,
+{
+    type Fut = Out;
+}
+
+fn complain_about_lock_hold(instant: std::time::Instant) {
+	let lock_held = instant.elapsed().as_secs_f32();
+	match lock_held {
+		10.0.. => log::error!("async write lock held for {lock_held:.2} secs"),
+		2.5.. => log::warn!("async write lock held for {lock_held:.2} secs"),
+		0.25.. => log::info!("async write lock held for {lock_held:.2} secs"),
+		_ => log::trace!("async write lock held for {lock_held:.2} secs"),
+	}
+}
+
 impl Env {
 	#[throws]
 	pub fn builder() -> EnvBuilder {
 		EnvBuilder { raw_env: lmdb::env_create()?, dbs: Vec::new() }
+	}
+
+	pub fn db(&self, name: &'static [u8]) -> Option<lmdb_sys::MDB_dbi> {
+		self.dbs.get(name).copied()
 	}
 
 	pub fn reader_list(&self) {
@@ -39,7 +60,10 @@ impl Env {
 		unsafe { lmdb_sys::mdb_reader_list(self.raw_env, Some(msg), std::ptr::null_mut()) };
 	}
 
+	// ????? rustc lint engine?
+	#[expect(unused_braces)]
 	#[throws] pub fn read_tx(&self) -> RoTxn { RoTxn(lmdb::txn_begin(self.raw_env, lmdb_sys::MDB_RDONLY)?) }
+	#[expect(unused_braces)]
 	#[throws] pub(super) fn write_tx(&self) -> RwTxn { RwTxn(lmdb::txn_begin(self.raw_env, 0)?) }
 
 	#[throws]
@@ -47,44 +71,30 @@ impl Env {
 		Res: Send + 'static,
 		Job: (FnOnce(&RwTxn) -> Res) + Send + 'static,
 	{
-		let _lock = self.write_lock.lock().await;
+		let _lock = self.write_sema.acquire().await.unwrap();
 		let now = std::time::Instant::now();
 
 		let res = tokio::task::spawn_blocking(move || {
 			let tx = self.write_tx()?;
 			let res = job(&tx);
 			tx.commit()?;
-			Ok(res)
+			Result::<_, crate::Error>::Ok(res)
 		}).await.expect("tokio spawn_blocking failed");
 		drop(_lock);
-
-		let lock_held = now.elapsed().as_secs_f32();
-		if lock_held > 10. {
-			log::error!("write lock held for {lock_held:.2} secs");
-		} else if lock_held > 2.5 {
-			log::warn!("write lock held for {lock_held:.2} secs");
-		} else if lock_held > 0.25 {
-			log::info!("write lock held for {lock_held:.2} secs");
-		} else {
-			log::trace!("write lock held for {lock_held:.2} secs");
-		}
-
+		complain_about_lock_hold(now);
 		res?
 	}
 
-	// outer result is whether DB ops failed or not,
-	// inner result is whether the job failed or not
-	// the tx isn't committed if the job fails
-	//
-	// should probably just be a Result<Res, Err> but
-	// it requires all jobs to specify return type
+	/// outer result is whether DB ops failed or not,
+	/// inner result is whether the job failed or not
+	/// the tx isn't committed if the job fails
 	#[throws]
 	pub async fn try_write<Res, Err, Job>(&'static self, job: Job) -> Result<Res, Err> where
 		Res: Send + 'static,
 		Job: (FnOnce(&RwTxn) -> Result<Res, Err>) + Send + 'static,
 		Err: Send + 'static,
 	{
-		let _lock = self.write_lock.lock().await;
+		let _lock = self.write_sema.acquire().await.unwrap();
 		let now = std::time::Instant::now();
 
 		let res = tokio::task::spawn_blocking(move || {
@@ -95,53 +105,49 @@ impl Env {
 			} else {
 				tx.abort();
 			}
-			Ok(res)
+			Result::<_, crate::Error>::Ok(res)
 		}).await.expect("tokio spawn_blocking failed");
 		drop(_lock);
-
-		let lock_held = now.elapsed().as_secs_f32();
-		if lock_held > 10. {
-			log::error!("write lock held for {lock_held:.2} secs");
-		} else if lock_held > 2.5 {
-			log::warn!("write lock held for {lock_held:.2} secs");
-		} else if lock_held > 0.25 {
-			log::info!("write lock held for {lock_held:.2} secs");
-		} else {
-			log::trace!("write lock held for {lock_held:.2} secs");
-		}
-
+		complain_about_lock_hold(now);
 		res?
 	}
 
-	/// discouraged
-	///
-	/// returning RwTxn is necessary because of lifetime issues,
-	/// we can use the for<'a> syntax to make it work but
-	/// it forbids type inference in usage sites
 	#[throws]
-	pub async fn write_async<Res, Job, Fut>(&'static self, job: Job) -> Res where
-		Job: FnOnce(RwTxn) -> Fut,
-		Fut: Future<Output = (RwTxn, Res)>,
-	{
-		let _lock = self.write_lock.lock().await;
+	pub async fn write_async<Res>(&'static self, job: impl for <'tx> WriteCallback<'tx, Res>) -> Res {
+		let _lock = self.write_sema.acquire().await.unwrap();
 		let now = std::time::Instant::now();
 
-		let tx = self.write_tx()?;
-		let (tx, res) = job(tx).await;
-		tx.commit()?;
+		let res = {
+			let tx = self.write_tx()?;
+			let res = job(&tx).await;
+			tx.commit()?;
+			res
+		};
 		drop(_lock);
+		complain_about_lock_hold(now);
+		res
+	}
 
-		let lock_held = now.elapsed().as_secs_f32();
-		if lock_held > 10. {
-			log::error!("async write lock held for {lock_held:.2} secs");
-		} else if lock_held > 2.5 {
-			log::warn!("async write lock held for {lock_held:.2} secs");
-		} else if lock_held > 0.25 {
-			log::info!("async write lock held for {lock_held:.2} secs");
-		} else {
-			log::trace!("async write lock held for {lock_held:.2} secs");
-		}
+	/// outer result is whether DB ops failed or not,
+	/// inner result is whether the job failed or not
+	/// the tx isn't committed if the job fails
+	#[throws]
+	pub async fn try_write_async<Res, Err>(&'static self, job: impl for <'tx> WriteCallback<'tx, Result<Res, Err>>) -> Result<Res, Err> {
+		let _lock = self.write_sema.acquire().await.unwrap();
+		let now = std::time::Instant::now();
 
+		let res = {
+			let tx = self.write_tx()?;
+			let res = job(&tx).await;
+			if res.is_ok() {
+				tx.commit()?;
+			} else {
+				tx.abort();
+			}
+			res
+		};
+		drop(_lock);
+		complain_about_lock_hold(now);
 		res
 	}
 
@@ -192,15 +198,12 @@ impl EnvBuilder {
 
 	#[must_use]
 	pub fn with<N: DbName>(mut self) -> Self {
-		self.dbs.push((N::NAME, N::flags()));
+		self.dbs.push((N::NAME, N::flags() | N::Table::<'static, RwTxn>::flags()));
 		self
 	}
 
 	#[throws]
-	pub fn build(self) -> Env {
-		#[cfg(not(test))] const PATH: &[u8] = b"db\0";
-		#[cfg(test)]      const PATH: &[u8] = b"../db\0";
-
+	pub fn build(self, path: &std::ffi::CStr) -> Env {
 		let flags =
 			lmdb_sys::MDB_NOMETASYNC | // maybe lose last transaction in case of a crash
 			lmdb_sys::MDB_NOTLS |      // don't use thread-local storage - read and write transactions can be on any thread, still at most 1 write tx
@@ -209,7 +212,7 @@ impl EnvBuilder {
 		lmdb::env_set_maxdbs(self.raw_env, self.dbs.len() as u32)?;
 		
 		// 0664 is permissions for db folder on Unix - read/write/not execute
-		lmdb::env_open(self.raw_env, PATH, flags, 664)?;
+		lmdb::env_open(self.raw_env, path, flags, 664)?;
 
 		let db_create_tx = RwTxn(lmdb::txn_begin(self.raw_env, 0)?);
 		let mut dbs = HashMap::with_capacity(self.dbs.len());
@@ -219,6 +222,6 @@ impl EnvBuilder {
 		}
 		db_create_tx.commit()?;
 
-		Env { raw_env: self.raw_env, dbs, write_lock: tokio::sync::Mutex::default() }
+		Env { raw_env: self.raw_env, dbs, write_sema: tokio::sync::Semaphore::new(1) }
 	}
 }

@@ -31,7 +31,7 @@ pub fn derive_db_name(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 			type Table<'tx, TX: ::batadase::transaction::Transaction> = #table;
 			const NAME: &'static [u8] = #db_name;
 
-			fn get<TX: ::batadase::transaction::Transaction>(tx: &TX) -> Self::Table<'_, TX> { Self::Table::build(tx, crate::db::ENV.dbs[Self::NAME]) }
+			fn get<TX: ::batadase::transaction::Transaction>(tx: &TX) -> Self::Table<'_, TX> { Self::Table::build(tx, crate::db::ENV.db(Self::NAME).unwrap()) }
 			#flags
 		}
 	).into()

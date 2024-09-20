@@ -1,9 +1,10 @@
 use super::{Transaction, RwTxn};
 use std::convert::AsMut;
-use fehler::throws;
-pub use self::error::Error;
-pub mod error;
+use culpa::throws;
+pub use error::Error;
 pub use lmdb_sys as sys;
+
+pub mod error;
 
 #[enumflags2::bitflags]
 #[repr(u32)]
@@ -131,7 +132,7 @@ pub(super) fn del(tx: &RwTxn, dbi: sys::MDB_dbi, key: impl AsMut<[u8]>) -> bool 
 
 #[throws]
 pub(super) fn drop(tx: &RwTxn, dbi: sys::MDB_dbi) {
-	error::handle_drop_code(unsafe { sys::mdb_drop(tx.raw(), dbi, 0) })?
+	error::handle_drop_code(unsafe { sys::mdb_drop(tx.raw(), dbi, 0) })?;
 }
 
 #[throws]
@@ -177,16 +178,23 @@ pub(super) fn env_set_maxreaders(env: *mut sys::MDB_env, maxreaders: u32) {
 
 #[allow(unused_variables)]
 #[throws]
-pub(super) fn env_open(env: *mut sys::MDB_env, path: &[u8], flags: u32, mode: u32) {
+pub(super) fn env_open(env: *mut sys::MDB_env, path: &std::ffi::CStr, flags: u32, mode: u32) {
 	#[cfg(unix)] let mode = mode;
 	#[cfg(windows)] let mode = 0;
-	error::handle_env_open(unsafe { sys::mdb_env_open(env, path.as_ptr().cast(), flags, mode) })?;
+	error::handle_env_open(unsafe { sys::mdb_env_open(env, path.as_ptr(), flags, mode) })?;
 }
 
 pub(super) fn dbi_open(tx: *mut sys::MDB_txn, name: &[u8], flags: enumflags2::BitFlags<DbFlags>) -> sys::MDB_dbi {
 	let mut dbi: sys::MDB_dbi = 0;
 	error::handle_dbi_open_code(unsafe { sys::mdb_dbi_open(tx, name.as_ptr().cast(), flags.bits(), &mut dbi) });
 	dbi
+}
+
+#[throws]
+pub(super) fn stat(txn: *mut sys::MDB_txn, dbi: sys::MDB_dbi) -> sys::MDB_stat {
+	let mut stat: sys::MDB_stat = unsafe { std::mem::zeroed() };
+	error::handle_stat_code(unsafe { sys::mdb_stat(txn, dbi, &mut stat) })?;
+	stat
 }
 
 pub trait MdbValExt {

@@ -1,4 +1,4 @@
-use fehler::throws;
+use culpa::throws;
 use super::{DbName, Error, lmdb};
 
 // The third Triagon was born of Death. It saw that the world was radiating excess energy.

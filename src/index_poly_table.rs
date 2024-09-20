@@ -1,20 +1,25 @@
 use super::*;
 use prelude::{Index, throws};
 
-pub struct PolyTable<'tx, TX> {
+pub struct IndexPolyTable<'tx, TX> {
 	tx: &'tx TX,
 	dbi: lmdb_sys::MDB_dbi,
 }
 
-impl<'tx> PolyTable<'tx, RwTxn> {
+impl<'tx, TX: Transaction> Table<TX> for IndexPolyTable<'tx, TX> {
+	fn dbi(&self) -> lmdb_sys::MDB_dbi { self.dbi }
+	fn txn(&self) -> &TX { self.tx }
+	fn flags() -> enumflags2::BitFlags<DbFlags> { DbFlags::IntegerKey.into() }
+}
+
+impl<'tx> IndexPolyTable<'tx, RwTxn> {
 	#[throws]
 	pub fn put<T>(&self, index: Index<T>, t: &T) where
 		T: rkyv::Archive + for <'a> rkyv::Serialize<RkyvSer<'a>>,
 	{
-		assert_eq!(std::mem::align_of::<T::Archived>(), 8, "All PolyTable Value archived types must be 8-byte aligned, but {} is not", std::any::type_name::<T>());
 		let mut index_bytes = u64::from(index).to_ne_bytes();
-		let mut value_bytes = rkyv::to_bytes(t).unwrap();
-		lmdb::put(self.tx, self.dbi, &mut index_bytes, &mut value_bytes)?
+		let mut value_bytes = rkyv::to_bytes(t)?;
+		lmdb::put(self.tx, self.dbi, &mut index_bytes, &mut value_bytes)?;
 	}
 
 	#[throws]
@@ -33,10 +38,10 @@ impl<'tx> PolyTable<'tx, RwTxn> {
 	}
 
 	#[throws]
-	pub fn clear(&self) { lmdb::drop(self.tx, self.dbi)? }
+	pub fn clear(&self) { lmdb::drop(self.tx, self.dbi)?; }
 }
 
-impl<'tx, TX> PolyTable<'tx, TX> where
+impl<'tx, TX> IndexPolyTable<'tx, TX> where
 	TX: Transaction,
 {
 	pub fn build(tx: &'tx TX, dbi: lmdb_sys::MDB_dbi) -> Self { Self { tx, dbi } }
@@ -47,8 +52,8 @@ impl<'tx, TX> PolyTable<'tx, TX> where
 		rkyv::Archived<T>: for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
 	{
 		let mut index_bytes = u64::from(index).to_ne_bytes();
-		lmdb::get(self.tx, self.dbi, &mut index_bytes)?
-			.map(|value| rkyv::access::<rkyv::Archived<T>, _>(value).unwrap())
+		let Some(value_bytes) = lmdb::get(self.tx, self.dbi, &mut index_bytes)? else { return None; };
+		Some(rkyv::access::<rkyv::Archived<T>, _>(value_bytes)?)
 	}
 
 	#[throws]

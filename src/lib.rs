@@ -16,19 +16,32 @@
 pub use batadase_index::Index;
 pub use batadase_macros::DbName;
 pub use env::Env;
-pub use lmdb::{Error, DbFlags, CursorOpFlags};
-pub use once_cell::sync::Lazy;
+pub use lmdb::{DbFlags, CursorOpFlags};
 pub use transaction::*;
 pub use enumflags2;
+pub use error::Error;
 
 pub mod assoc_table;
 pub mod env;
 pub mod lmdb;
-pub mod poly_table;
-pub mod table;
+pub mod index_poly_table;
+pub mod index_table;
 pub mod transaction;
+pub mod error;
 
-pub mod prelude;
+pub(crate) mod prelude;
+
+pub trait Table<TX: Transaction> {
+	fn dbi(&self) -> lmdb_sys::MDB_dbi;
+	fn txn(&self) -> &TX;
+	fn flags() -> enumflags2::BitFlags<DbFlags> { enumflags2::BitFlags::empty() }
+
+	#[culpa::throws]
+	fn entries(&self) -> usize {
+		let stat = lmdb::stat(self.txn().raw(), self.dbi())?;
+		stat.ms_entries
+	}
+}
 
 // potentially useful relation table flavours:
 // * one to many via Indices
@@ -36,10 +49,11 @@ pub mod prelude;
 // * two-way many-to-many via Indices
 
 type RkyvSer<'a> = rkyv::api::high::HighSerializer<rkyv::util::AlignedVec, rkyv::ser::allocator::ArenaHandle<'a>, rkyv::rancor::Error>;
+type RkyvDe = rkyv::api::high::HighDeserializer<rkyv::rancor::Error>;
 type RkyvVal<'a> = rkyv::api::high::HighValidator<'a, rkyv::rancor::Error>;
 
 pub trait DbName {
-	type Table<'tx, TX: Transaction>;
+	type Table<'tx, TX: Transaction>: Table<TX>;
 	const NAME: &'static [u8];
 
 	fn get<TX: Transaction>(tx: &TX) -> Self::Table<'_, TX>;
@@ -47,7 +61,7 @@ pub trait DbName {
 }
 
 pub fn version() -> semver::Version {
-	static VERSION: Lazy<String> = Lazy::new(|| std::fs::read_to_string("db/version")
+	static VERSION: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| std::fs::read_to_string("db/version")
 		.expect("Failed to get DB version from file. Please ensure there is a 'version' file in the db directory with a valid semver version.")
 	);
 
@@ -63,14 +77,25 @@ pub fn verify(expected: &semver::Version) {
 	assert!(version == *expected, "DB version error: expected {expected}, but DB was found at {version}.");
 }
 
+pub fn unrkyv<T>(archive: &rkyv::Archived<T>) -> Result<T, rkyv::rancor::Error> where
+	T: rkyv::Archive,
+	rkyv::Archived<T>: rkyv::Deserialize<T, RkyvDe>,
+{ rkyv::deserialize::<T, rkyv::rancor::Error>(archive) }
+
+pub fn unrkyv_from_bytes<T>(bytes: &[u8]) -> Result<T, rkyv::rancor::Error> where
+	T: rkyv::Archive,
+	rkyv::Archived<T>: for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>> + rkyv::Deserialize<T, RkyvDe>,
+{ rkyv::from_bytes::<T, rkyv::rancor::Error>(bytes) }
+
 /// If you use a single static Env, e.g.
 /// ```ignore
 /// static ENV: Lazy<Env> = Lazy::new(||
-/// Env::builder(MODULE_PATH).unwrap()
-///        .with::<MyTable>()
-///        ...
-///        ...
-///        .build().unwrap()
+///     Env::builder().unwrap()
+///         .mapsize(1 << 30).unwrap() // 1 gb
+///         .with::<MyTable>()
+///         ...
+///         ...
+///         .build("db").unwrap()
 /// );
 /// ```
 /// you can use this macro for more convenient (?) global read/write fns, e.g.
@@ -96,15 +121,11 @@ macro_rules! def_tx_ops {
 			Err: ::std::marker::Send + 'static,
 		{ $env_name.try_write(job).await }
 
-		/// discouraged
-		///
-		/// returning RwTxn is necessary because of lifetime issues,
-		/// we can use the for<'a> syntax to make it work but
-		/// it forbids type inference in usage sites
-		pub async fn write_async<Res, Job, Fut>(job: Job) -> ::std::result::Result<Res, ::batadase::Error> where
-			Job: ::std::ops::FnOnce(::batadase::transaction::RwTxn) -> Fut,
-			Fut: ::std::future::Future<Output = (::batadase::transaction::RwTxn, Res)>,
+		pub async fn write_async<Res>(job: impl for <'tx> ::batadase::env::WriteCallback<'tx, Res>) -> ::std::result::Result<Res, ::batadase::Error>
 		{ $env_name.write_async(job).await }
+
+		pub async fn try_write_async<Res, Error>(job: impl for <'tx> ::batadase::env::WriteCallback<'tx, ::std::result::Result<Res, Error>>) -> ::std::result::Result<::std::result::Result<Res, Error>, ::batadase::Error>
+		{ $env_name.try_write_async(job).await }
 	};
 
 	($env_name:ident, $err:ty) => {
@@ -120,19 +141,14 @@ macro_rules! def_tx_ops {
 			Job: (::std::ops::FnOnce(&::batadase::transaction::RwTxn) -> ::std::result::Result<Res, $err>) + ::std::marker::Send + 'static,
 		{ $env_name.try_write(job).await }
 
-		/// discouraged
-		///
-		/// returning RwTxn is necessary because of lifetime issues,
-		/// we can use the for<'a> syntax to make it work but
-		/// it forbids type inference in usage sites
-		pub async fn write_async<Res, Job, Fut>(job: Job) -> ::std::result::Result<Res, ::batadase::Error> where
-			Job: ::std::ops::FnOnce(::batadase::transaction::RwTxn) -> Fut,
-			Fut: ::std::future::Future<Output = (::batadase::transaction::RwTxn, Res)>,
+		pub async fn write_async<Res>(job: impl for <'tx> ::batadase::env::WriteCallback<'tx, Res>) -> ::std::result::Result<Res, ::batadase::Error>
 		{ $env_name.write_async(job).await }
+
+		pub async fn try_write_async<Res>(job: impl for <'tx> ::batadase::env::WriteCallback<'tx, ::std::result::Result<Res, $err>>) -> ::std::result::Result<::std::result::Result<Res, $err>, ::batadase::Error>
+		{ $env_name.try_write_async(job).await }
 	};
 
 	// the only error most people should really care about is read_tx's ReadersFull
-	// atm it's 4096 max read transactions at once, which should be enough
 	(unwrapped $env_name:ident, $err:ty) => {
 		pub fn read_tx() -> ::batadase::transaction::RoTxn { $env_name.read_tx().unwrap() }
 
@@ -146,14 +162,10 @@ macro_rules! def_tx_ops {
 			Job: (::std::ops::FnOnce(&::batadase::transaction::RwTxn) -> ::std::result::Result<Res, $err>) + ::std::marker::Send + 'static,
 		{ $env_name.try_write(job).await.unwrap() }
 
-		/// discouraged
-		///
-		/// returning RwTxn is necessary because of lifetime issues,
-		/// we can use the for<'a> syntax to make it work but
-		/// it forbids type inference in usage sites
-		pub async fn write_async<Res, Job, Fut>(job: Job) -> Res where
-			Job: ::std::ops::FnOnce(::batadase::transaction::RwTxn) -> Fut,
-			Fut: ::std::future::Future<Output = (::batadase::transaction::RwTxn, Res)>,
+		pub async fn write_async<Res>(job: impl for <'tx> ::batadase::env::WriteCallback<'tx, Res>) -> Res
 		{ $env_name.write_async(job).await.unwrap() }
+
+		pub async fn try_write_async<Res>(job: impl for <'tx> ::batadase::env::WriteCallback<'tx, ::std::result::Result<Res, $err>>) -> ::std::result::Result<Res, $err>
+		{ $env_name.try_write_async(job).await.unwrap() }
 	};
 }
