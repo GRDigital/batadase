@@ -15,5 +15,5 @@ proc-macro = true
 proc-quote = "0.4"
 syn = "2"
 
-[lints]
-workspace = true
+# [lints]
+# workspace = true

@@ -13,5 +13,5 @@ rkyv = "0.8"
 serde = { version = "1", features = ["derive"] }
 shrinkwraprs = "0.3"
 
-[lints]
-workspace = true
+# [lints]
+# workspace = true

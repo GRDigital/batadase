@@ -26,5 +26,5 @@ tokio = { version = "1", features = ["sync", "rt"], default-features = false }
 # batadase-index = { path = "index" }
 # batadase-macros = { path = "macros" }
 
-[lints]
-workspace = true
+# [lints]
+# workspace = true
