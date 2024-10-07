@@ -6,13 +6,13 @@ pub struct IndexPolyTable<'tx, TX> {
 	dbi: lmdb_sys::MDB_dbi,
 }
 
-impl<'tx, TX: Transaction> Table<TX> for IndexPolyTable<'tx, TX> {
+impl<TX: Transaction> Table<TX> for IndexPolyTable<'_, TX> {
 	fn dbi(&self) -> lmdb_sys::MDB_dbi { self.dbi }
 	fn txn(&self) -> &TX { self.tx }
 	fn flags() -> enumflags2::BitFlags<DbFlags> { DbFlags::IntegerKey.into() }
 }
 
-impl<'tx> IndexPolyTable<'tx, RwTxn> {
+impl IndexPolyTable<'_, RwTxn> {
 	#[throws]
 	pub fn put<T>(&self, index: Index<T>, t: &T) where
 		T: rkyv::Archive + for <'a> rkyv::Serialize<RkyvSer<'a>>,

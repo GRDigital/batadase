@@ -8,13 +8,13 @@ pub struct AssocTable<'tx, TX, K, V> {
 	_pd: PhantomData<(K, V)>,
 }
 
-impl<'tx, TX: Transaction, K, V> Table<TX> for AssocTable<'tx, TX, K, V> {
+impl<TX: Transaction, K, V> Table<TX> for AssocTable<'_, TX, K, V> {
 	fn dbi(&self) -> lmdb_sys::MDB_dbi { self.dbi }
 	fn txn(&self) -> &TX { self.tx }
 }
 
 // RwTxn only, so all methods mutate
-impl<'tx, K, V> AssocTable<'tx, RwTxn, K, V> where
+impl<K, V> AssocTable<'_, RwTxn, K, V> where
 	K: rkyv::Archive + for <'a> rkyv::Serialize<RkyvSer<'a>>,
 	V: rkyv::Archive + for <'a> rkyv::Serialize<RkyvSer<'a>>,
 {

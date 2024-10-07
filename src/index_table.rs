@@ -8,13 +8,13 @@ pub struct IndexTable<'tx, TX, T> {
 	_pd: PhantomData<T>,
 }
 
-impl<'tx, TX: Transaction, T> Table<TX> for IndexTable<'tx, TX, T> {
+impl<TX: Transaction, T> Table<TX> for IndexTable<'_, TX, T> {
 	fn dbi(&self) -> lmdb_sys::MDB_dbi { self.dbi }
 	fn txn(&self) -> &TX { self.tx }
 	fn flags() -> enumflags2::BitFlags<DbFlags> { DbFlags::IntegerKey.into() }
 }
 
-impl<'tx, T> IndexTable<'tx, RwTxn, T> where
+impl<T> IndexTable<'_, RwTxn, T> where
 	T: for <'a> rkyv::Serialize<RkyvSer<'a>>,
 	rkyv::Archived<T>: for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
 {

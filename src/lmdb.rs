@@ -81,8 +81,8 @@ impl std::ops::DerefMut for Val<'_> {
 }
 
 pub(super) struct Cursor<'tx, TX: Transaction>(*mut sys::MDB_cursor, &'tx TX);
-unsafe impl<'tx, TX: Transaction> Send for Cursor<'tx, TX> {}
-unsafe impl<'tx, TX: Transaction> Sync for Cursor<'tx, TX> {}
+unsafe impl<TX: Transaction> Send for Cursor<'_, TX> {}
+unsafe impl<TX: Transaction> Sync for Cursor<'_, TX> {}
 
 impl<'tx, TX: Transaction> Cursor<'tx, TX> {
 	#[throws]
