@@ -17,19 +17,20 @@ pub use batadase_index::Index;
 pub use batadase_macros::DbName;
 pub use env::Env;
 pub use lmdb::{DbFlags, CursorOpFlags};
-pub use transaction::*;
+pub use transaction::{Transaction, RoTxn, RwTxn};
 pub use enumflags2;
 pub use error::Error;
+pub use rkyv;
 
-pub mod assoc_table;
 pub mod env;
 pub mod lmdb;
-pub mod index_poly_table;
-pub mod index_table;
 pub mod transaction;
 pub mod error;
 
-pub(crate) mod prelude;
+pub mod index_table;
+pub mod assoc_table;
+pub mod index_poly_table;
+pub mod assoc_poly_table;
 
 pub trait Table<TX: Transaction> {
 	fn dbi(&self) -> lmdb_sys::MDB_dbi;
@@ -58,23 +59,6 @@ pub trait DbName {
 
 	fn get<TX: Transaction>(tx: &TX) -> Self::Table<'_, TX>;
 	fn flags() -> enumflags2::BitFlags<lmdb::DbFlags> { enumflags2::BitFlags::empty() }
-}
-
-pub fn version() -> semver::Version {
-	static VERSION: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| std::fs::read_to_string("db/version")
-		.expect("Failed to get DB version from file. Please ensure there is a 'version' file in the db directory with a valid semver version.")
-	);
-
-	semver::Version::parse(VERSION.trim()).expect("Can't parse version")
-}
-
-pub fn set_version(version: &semver::Version) -> std::io::Result<()> {
-	std::fs::write("db/version", version.to_string())
-}
-
-pub fn verify(expected: &semver::Version) {
-	let version = version();
-	assert!(version == *expected, "DB version error: expected {expected}, but DB was found at {version}.");
 }
 
 pub fn unrkyv<T>(archive: &rkyv::Archived<T>) -> Result<T, rkyv::rancor::Error> where

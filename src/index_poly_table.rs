@@ -1,5 +1,6 @@
-use super::*;
-use prelude::{Index, throws};
+use crate::{Transaction, RwTxn, Table, RkyvSer, RkyvVal, Error, lmdb, DbFlags};
+use culpa::throws;
+use batadase_index::Index;
 
 pub struct IndexPolyTable<'tx, TX> {
 	tx: &'tx TX,

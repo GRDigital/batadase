@@ -1,5 +1,6 @@
-use super::*;
-use prelude::{Index, throws};
+use crate::{Transaction, RwTxn, Table, RkyvSer, RkyvVal, Error, lmdb, DbFlags};
+use culpa::throws;
+use batadase_index::Index;
 use std::marker::PhantomData;
 
 pub struct IndexTable<'tx, TX, T> {

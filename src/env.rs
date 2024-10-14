@@ -1,6 +1,6 @@
-use futures::prelude::*;
-use crate::prelude::*;
+use culpa::throws;
 use std::collections::HashMap;
+use std::future::Future;
 
 use super::{lmdb::{self, DbFlags}, DbName, RoTxn, RwTxn, Transaction, error::Error, Table};
 

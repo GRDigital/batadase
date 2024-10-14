@@ -36,3 +36,17 @@ pub fn derive_db_name(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 		}
 	).into()
 }
+
+/*
+pub fn crate_name() -> TokenStream {
+	let into_ident = |x| match x {
+		proc_macro_crate::FoundCrate::Itself => quote! { crate },
+		proc_macro_crate::FoundCrate::Name(x) => { let name = syn::Ident::new(&x, Span::call_site()); quote! { ::#name } },
+	};
+	let indent = proc_macro_crate::crate_name("batadase").ok().map(into_ident);
+	match indent {
+		Some(indent) => quote! { #indent },
+		None => quote! { crate },
+	}
+}
+*/

@@ -1,5 +1,5 @@
-use super::*;
-use prelude::throws;
+use crate::{Transaction, RwTxn, Table, RkyvSer, RkyvVal, RkyvDe, Error, lmdb};
+use culpa::throws;
 use std::marker::PhantomData;
 
 pub struct AssocTable<'tx, TX, K, V> {

@@ -9,7 +9,7 @@ authors = ["Zygo Media <contact@zygomedia.com>"]
 readme = "../README.md"
 
 [dependencies]
-rkyv = "0.8"
+rkyv = { version = "0.8", default-features = false }
 serde = { version = "1", features = ["derive"] }
 shrinkwraprs = "0.3"
 

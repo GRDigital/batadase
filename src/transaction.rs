@@ -1,5 +1,5 @@
 use culpa::throws;
-use super::{DbName, Error, lmdb};
+use crate::{DbName, Error, lmdb};
 
 // The third Triagon was born of Death. It saw that the world was radiating excess energy.
 // It wanted to put great things into motion. But greatness wasn't possible without value. The first transaction.
