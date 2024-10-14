@@ -11,14 +11,21 @@ use crate::{DbName, Error, lmdb};
 // But in that moment the seed of primordial financial might was planted, and the world took on its transactional form.
 // Conflict and discord emerged, and the third Triagon was ecstatic. The third transaction.
 
-#[repr(transparent)] pub struct RoTxn(pub(super) *mut lmdb_sys::MDB_txn);
-#[repr(transparent)] pub struct RwTxn(pub(super) *mut lmdb_sys::MDB_txn);
+pub struct RoTxn<'env> {
+	pub(super) raw: *mut lmdb_sys::MDB_txn,
+	pub(super) env: &'env super::Env,
+}
+
+pub struct RwTxn<'env> {
+	pub(super) raw: *mut lmdb_sys::MDB_txn,
+	pub(super) env: &'env super::Env,
+}
 
 /// it is Sync + Send since you can't close a db after you open it
-unsafe impl Sync for RoTxn {}
-unsafe impl Send for RoTxn {}
-unsafe impl Sync for RwTxn {}
-unsafe impl Send for RwTxn {}
+unsafe impl Sync for RoTxn<'_> {}
+unsafe impl Send for RoTxn<'_> {}
+unsafe impl Sync for RwTxn<'_> {}
+unsafe impl Send for RwTxn<'_> {}
 
 // potential avenue:
 // then TX: Transaction turns into smth like TX: Deref<Target = RoTxn>
@@ -48,8 +55,9 @@ impl RoTxn {
 }
 */
 
-pub trait Transaction: Sized + 'static {
+pub trait Transaction<'env>: Sized {
 	fn raw(&self) -> *mut lmdb_sys::MDB_txn;
+	fn env(&self) -> &'env super::Env;
 	#[throws]
 	fn commit(self) {
 		lmdb::txn_commit(self.raw())?;
@@ -60,15 +68,17 @@ pub trait Transaction: Sized + 'static {
 	fn abort(self) {
 		// runs Drop, which does mdb_txn_abort
 	}
-	fn get<Name: DbName>(&self) -> Name::Table<'_, Self> { Name::get(self) }
+	fn get<'tx, Name: DbName>(&'tx self) -> Name::Table<'tx, 'env, Self> { Name::get(self) }
 }
 
-impl Transaction for RoTxn {
-	fn raw(&self) -> *mut lmdb_sys::MDB_txn { self.0 }
+impl<'env> Transaction<'env> for RoTxn<'env> {
+	fn raw(&self) -> *mut lmdb_sys::MDB_txn { self.raw }
+	fn env(&self) -> &'env super::Env { self.env }
 }
-impl Transaction for RwTxn {
-	fn raw(&self) -> *mut lmdb_sys::MDB_txn { self.0 }
+impl<'env> Transaction<'env> for RwTxn<'env> {
+	fn raw(&self) -> *mut lmdb_sys::MDB_txn { self.raw }
+	fn env(&self) -> &'env super::Env { self.env }
 }
 
-impl Drop for RoTxn { fn drop(&mut self) { unsafe { lmdb_sys::mdb_txn_abort(self.0); } } }
-impl Drop for RwTxn { fn drop(&mut self) { unsafe { lmdb_sys::mdb_txn_abort(self.0); } } }
+impl Drop for RoTxn<'_> { fn drop(&mut self) { unsafe { lmdb_sys::mdb_txn_abort(self.raw); } } }
+impl Drop for RwTxn<'_> { fn drop(&mut self) { unsafe { lmdb_sys::mdb_txn_abort(self.raw); } } }

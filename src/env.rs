@@ -20,13 +20,13 @@ unsafe impl Sync for Env {}
 unsafe impl Send for EnvBuilder {}
 unsafe impl Sync for EnvBuilder {}
 
-pub trait WriteCallback<'tx, T>: FnOnce(&'tx RwTxn) -> Self::Fut {
+pub trait WriteCallback<'tx, T>: FnOnce(&'tx RwTxn<'static>) -> Self::Fut {
     type Fut: Future<Output = T>;
 }
 
 impl<'tx, T, Out, F> WriteCallback<'tx, T> for F where
 	Out: Future<Output = T>,
-	F: FnOnce(&'tx RwTxn) -> Out,
+	F: FnOnce(&'tx RwTxn<'static>) -> Out,
 {
     type Fut = Out;
 }
@@ -62,9 +62,9 @@ impl Env {
 
 	// ????? rustc lint engine?
 	#[expect(unused_braces)]
-	#[throws] pub fn read_tx(&self) -> RoTxn { RoTxn(lmdb::txn_begin(self.raw_env, lmdb_sys::MDB_RDONLY)?) }
+	#[throws] pub fn read_tx(&self) -> RoTxn { RoTxn { raw: lmdb::txn_begin(self.raw_env, lmdb_sys::MDB_RDONLY)?, env: self } }
 	#[expect(unused_braces)]
-	#[throws] pub(super) fn write_tx(&self) -> RwTxn { RwTxn(lmdb::txn_begin(self.raw_env, 0)?) }
+	#[throws] pub(super) fn write_tx(&self) -> RwTxn { RwTxn { raw: lmdb::txn_begin(self.raw_env, 0)?, env: self } }
 
 	#[throws]
 	pub async fn write<Res, Job>(&'static self, job: Job) -> Res where
@@ -137,7 +137,7 @@ impl Env {
 		let now = std::time::Instant::now();
 
 		let res = {
-			let tx = self.write_tx()?;
+			let tx: RwTxn<'static> = self.write_tx()?;
 			let res = job(&tx).await;
 			if res.is_ok() {
 				tx.commit()?;
@@ -198,7 +198,7 @@ impl EnvBuilder {
 
 	#[must_use]
 	pub fn with<N: DbName>(mut self) -> Self {
-		self.dbs.push((N::NAME, N::flags() | N::Table::<'static, RwTxn>::flags()));
+		self.dbs.push((N::NAME, N::flags() | N::Table::<'static, 'static, RwTxn>::flags()));
 		self
 	}
 
@@ -214,7 +214,8 @@ impl EnvBuilder {
 		// 0664 is permissions for db folder on Unix - read/write/not execute
 		lmdb::env_open(self.raw_env, path, flags, 664)?;
 
-		let db_create_tx = RwTxn(lmdb::txn_begin(self.raw_env, 0)?);
+		let mut env = Env { raw_env: self.raw_env, dbs: HashMap::new(), write_sema: tokio::sync::Semaphore::new(1) };
+		let db_create_tx = RwTxn { raw: lmdb::txn_begin(self.raw_env, 0)?, env: &env };
 		let mut dbs = HashMap::with_capacity(self.dbs.len());
 		for (name, flags) in self.dbs {
 			log::trace!("creating {}", unsafe { std::str::from_utf8_unchecked(name) });
@@ -222,6 +223,7 @@ impl EnvBuilder {
 		}
 		db_create_tx.commit()?;
 
-		Env { raw_env: self.raw_env, dbs, write_sema: tokio::sync::Semaphore::new(1) }
+		env.dbs = dbs;
+		env
 	}
 }

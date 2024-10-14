@@ -9,13 +9,20 @@ pub struct IndexTable<'tx, TX, T> {
 	_pd: PhantomData<T>,
 }
 
-impl<TX: Transaction, T> Table<TX> for IndexTable<'_, TX, T> {
+impl<'tx, 'env: 'tx, TX, T> Table<'tx, 'env, TX> for IndexTable<'tx, TX, T> where
+	TX: Transaction<'env>,
+	T: rkyv::Archive,
+	rkyv::Archived<T>: for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
+{
 	fn dbi(&self) -> lmdb_sys::MDB_dbi { self.dbi }
 	fn txn(&self) -> &TX { self.tx }
 	fn flags() -> enumflags2::BitFlags<DbFlags> { DbFlags::IntegerKey.into() }
+	fn build(tx: &'tx TX, name: &'static [u8]) -> Self {
+		Self::build(tx, tx.env().db(name).unwrap())
+	}
 }
 
-impl<T> IndexTable<'_, RwTxn, T> where
+impl<'tx, T> IndexTable<'tx, RwTxn<'tx>, T> where
 	T: for <'a> rkyv::Serialize<RkyvSer<'a>>,
 	rkyv::Archived<T>: for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
 {
@@ -43,8 +50,8 @@ impl<T> IndexTable<'_, RwTxn, T> where
 	pub fn clear(&self) { lmdb::drop(self.tx, self.dbi)?; }
 }
 
-impl<'tx, TX, T> IndexTable<'tx, TX, T> where
-	TX: Transaction,
+impl<'tx, 'env: 'tx, TX, T> IndexTable<'tx, TX, T> where
+	TX: Transaction<'env>,
 	T: rkyv::Archive,
 	rkyv::Archived<T>: for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
 {
@@ -67,13 +74,13 @@ impl<'tx, TX, T> IndexTable<'tx, TX, T> where
 
 	#[expect(clippy::iter_not_returning_iterator)]
 	#[throws]
-	pub fn iter(&self) -> impl Iterator<Item = (Index<T>, &'tx rkyv::Archived<T>)> where
+	pub fn iter(&self) -> impl Iterator<Item = (Index<T>, &'tx rkyv::Archived<T>)> + use<'tx, 'env, TX, T> where
 		rkyv::Archived<T>: 'tx + for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
 	{
-		struct Cursor<'tx, TX: Transaction, T>(lmdb::Cursor<'tx, TX>, PhantomData<T>);
+		struct Cursor<'tx, TX, T>(lmdb::Cursor<'tx, TX>, PhantomData<T>);
 
-		impl<'tx, TX, T> Iterator for Cursor<'tx, TX, T> where
-			TX: Transaction,
+		impl<'tx, 'env: 'tx, TX, T> Iterator for Cursor<'tx, TX, T> where
+			TX: Transaction<'env>,
 			T: rkyv::Archive,
 			rkyv::Archived<T>: 'tx + for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
 		{

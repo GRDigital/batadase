@@ -8,13 +8,20 @@ pub struct AssocPolyTable<'tx, TX, K> {
 	_pd: PhantomData<K>,
 }
 
-impl<TX: Transaction, K> Table<TX> for AssocPolyTable<'_, TX, K> {
+impl<'tx, 'env: 'tx, TX, K> Table<'tx, 'env, TX> for AssocPolyTable<'tx, TX, K> where
+	TX: Transaction<'env>,
+	K: rkyv::Archive + for <'a> rkyv::Serialize<RkyvSer<'a>>,
+	rkyv::Archived<K>: for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
+{
 	fn dbi(&self) -> lmdb_sys::MDB_dbi { self.dbi }
 	fn txn(&self) -> &TX { self.tx }
+	fn build(tx: &'tx TX, name: &'static [u8]) -> Self {
+		Self::build(tx, tx.env().db(name).unwrap())
+	}
 }
 
 // RwTxn only, so all methods mutate
-impl<K> AssocPolyTable<'_, RwTxn, K> where
+impl<'tx, K> AssocPolyTable<'tx, RwTxn<'tx>, K> where
 	K: rkyv::Archive + for <'a> rkyv::Serialize<RkyvSer<'a>>,
 {
 	#[throws]
@@ -37,8 +44,8 @@ impl<K> AssocPolyTable<'_, RwTxn, K> where
 }
 
 // both RoTxn and RwTxn, so all methods are read-only
-impl<'tx, TX, K> AssocPolyTable<'tx, TX, K> where
-	TX: Transaction,
+impl<'tx, 'env: 'tx, TX, K> AssocPolyTable<'tx, TX, K> where
+	TX: Transaction<'env>,
 	K: rkyv::Archive + for <'a> rkyv::Serialize<RkyvSer<'a>>,
 	rkyv::Archived<K>: for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
 {
@@ -59,7 +66,7 @@ impl<'tx, TX, K> AssocPolyTable<'tx, TX, K> where
 	#[throws]
 	pub fn get_unrkyv<V>(&self, key: &K) -> Option<V> where
 		V: rkyv::Archive,
-		rkyv::Archived<V>: for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>> + rkyv::Deserialize<V, RkyvDe>,
+		rkyv::Archived<V>: for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>> + rkyv::Deserialize<V, RkyvDe> + 'tx,
 	{
 		let Some(archived) = self.get::<V>(key)? else { return None; };
 		Some(rkyv::deserialize::<V, rkyv::rancor::Error>(archived)?)

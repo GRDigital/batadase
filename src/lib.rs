@@ -36,7 +36,7 @@ pub use index_poly_table::IndexPolyTable;
 pub use index_table::IndexTable;
 pub use assoc_poly_table::AssocPolyTable;
 
-pub trait Table<TX: Transaction> {
+pub trait Table<'tx, 'env: 'tx, TX: Transaction<'env>> {
 	fn dbi(&self) -> lmdb_sys::MDB_dbi;
 	fn txn(&self) -> &TX;
 	fn flags() -> enumflags2::BitFlags<DbFlags> { enumflags2::BitFlags::empty() }
@@ -46,6 +46,8 @@ pub trait Table<TX: Transaction> {
 		let stat = lmdb::stat(self.txn().raw(), self.dbi())?;
 		stat.ms_entries
 	}
+
+	fn build(tx: &'tx TX, name: &'static [u8]) -> Self;
 }
 
 // potentially useful relation table flavours:
@@ -58,12 +60,21 @@ type RkyvDe = rkyv::api::high::HighDeserializer<rkyv::rancor::Error>;
 type RkyvVal<'a> = rkyv::api::high::HighValidator<'a, rkyv::rancor::Error>;
 
 pub trait DbName {
-	type Table<'tx, TX: Transaction>: Table<TX>;
+	type Table<'tx, 'env: 'tx, TX: Transaction<'env> + 'tx>: Table<'tx, 'env, TX>;
 	const NAME: &'static [u8];
 
-	fn get<TX: Transaction>(tx: &TX) -> Self::Table<'_, TX>;
+	fn get<'tx, 'env: 'tx, TX: Transaction<'env>>(tx: &'tx TX) -> Self::Table<'tx, 'env, TX> { Self::Table::build(tx, Self::NAME) }
 	fn flags() -> enumflags2::BitFlags<lmdb::DbFlags> { enumflags2::BitFlags::empty() }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub enum MetaField {
+	Version,
+}
+
+#[derive(DbName)]
+#[table(AssocPolyTable<'tx, TX, MetaField>)]
+pub struct Meta;
 
 pub fn unrkyv<T>(archive: &rkyv::Archived<T>) -> Result<T, rkyv::rancor::Error> where
 	T: rkyv::Archive,
@@ -138,7 +149,7 @@ macro_rules! def_tx_ops {
 
 	// the only error most people should really care about is read_tx's ReadersFull
 	(unwrapped $env_name:ident, $err:ty) => {
-		pub fn read_tx() -> ::batadase::transaction::RoTxn { $env_name.read_tx().unwrap() }
+		pub fn read_tx() -> ::batadase::transaction::RoTxn<'static> { $env_name.read_tx().unwrap() }
 
 		pub async fn write<Res, Job>(job: Job) -> Res where
 			Res: ::std::marker::Send + 'static,

@@ -7,13 +7,18 @@ pub struct IndexPolyTable<'tx, TX> {
 	dbi: lmdb_sys::MDB_dbi,
 }
 
-impl<TX: Transaction> Table<TX> for IndexPolyTable<'_, TX> {
+impl<'tx, 'env: 'tx, TX> Table<'tx, 'env, TX> for IndexPolyTable<'tx, TX> where
+	TX: Transaction<'env>,
+{
 	fn dbi(&self) -> lmdb_sys::MDB_dbi { self.dbi }
 	fn txn(&self) -> &TX { self.tx }
 	fn flags() -> enumflags2::BitFlags<DbFlags> { DbFlags::IntegerKey.into() }
+	fn build(tx: &'tx TX, name: &'static [u8]) -> Self {
+		Self::build(tx, tx.env().db(name).unwrap())
+	}
 }
 
-impl IndexPolyTable<'_, RwTxn> {
+impl<'tx> IndexPolyTable<'tx, RwTxn<'tx>> {
 	#[throws]
 	pub fn put<T>(&self, index: Index<T>, t: &T) where
 		T: rkyv::Archive + for <'a> rkyv::Serialize<RkyvSer<'a>>,
@@ -42,8 +47,8 @@ impl IndexPolyTable<'_, RwTxn> {
 	pub fn clear(&self) { lmdb::drop(self.tx, self.dbi)?; }
 }
 
-impl<'tx, TX> IndexPolyTable<'tx, TX> where
-	TX: Transaction,
+impl<'tx, 'env: 'tx, TX> IndexPolyTable<'tx, TX> where
+	TX: Transaction<'env>,
 {
 	pub fn build(tx: &'tx TX, dbi: lmdb_sys::MDB_dbi) -> Self { Self { tx, dbi } }
 

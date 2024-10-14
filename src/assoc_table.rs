@@ -8,13 +8,22 @@ pub struct AssocTable<'tx, TX, K, V> {
 	_pd: PhantomData<(K, V)>,
 }
 
-impl<TX: Transaction, K, V> Table<TX> for AssocTable<'_, TX, K, V> {
+impl<'tx, 'env: 'tx, TX, K, V> Table<'tx, 'env, TX> for AssocTable<'tx, TX, K, V> where
+	TX: Transaction<'env>,
+	K: rkyv::Archive + for <'a> rkyv::Serialize<RkyvSer<'a>>,
+	V: rkyv::Archive,
+	rkyv::Archived<K>: for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
+	rkyv::Archived<V>: for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>> + rkyv::Deserialize<V, RkyvDe> + 'tx,
+{
 	fn dbi(&self) -> lmdb_sys::MDB_dbi { self.dbi }
 	fn txn(&self) -> &TX { self.tx }
+	fn build(tx: &'tx TX, name: &'static [u8]) -> Self {
+		Self::build(tx, tx.env().db(name).unwrap())
+	}
 }
 
 // RwTxn only, so all methods mutate
-impl<K, V> AssocTable<'_, RwTxn, K, V> where
+impl<'tx, K, V> AssocTable<'tx, RwTxn<'tx>, K, V> where
 	K: rkyv::Archive + for <'a> rkyv::Serialize<RkyvSer<'a>>,
 	V: rkyv::Archive + for <'a> rkyv::Serialize<RkyvSer<'a>>,
 {
@@ -36,12 +45,12 @@ impl<K, V> AssocTable<'_, RwTxn, K, V> where
 }
 
 // both RoTxn and RwTxn, so all methods are read-only
-impl<'tx, TX, K, V> AssocTable<'tx, TX, K, V> where
-	TX: Transaction,
+impl<'tx, 'env: 'tx, TX, K, V> AssocTable<'tx, TX, K, V> where
+	TX: Transaction<'env>,
 	K: rkyv::Archive + for <'a> rkyv::Serialize<RkyvSer<'a>>,
 	V: rkyv::Archive,
 	rkyv::Archived<K>: for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
-	rkyv::Archived<V>: for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>> + rkyv::Deserialize<V, RkyvDe>,
+	rkyv::Archived<V>: for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>> + rkyv::Deserialize<V, RkyvDe> + 'tx,
 {
 	pub fn build(tx: &'tx TX, dbi: lmdb_sys::MDB_dbi) -> Self {
 		Self { tx, dbi, _pd: PhantomData }
@@ -71,14 +80,14 @@ impl<'tx, TX, K, V> AssocTable<'tx, TX, K, V> where
 
 	#[expect(clippy::iter_not_returning_iterator)]
 	#[throws]
-	pub fn iter(&self) -> impl Iterator<Item = (&'tx rkyv::Archived<K>, &'tx rkyv::Archived<V>)> where
+	pub fn iter(&self) -> impl Iterator<Item = (&'tx rkyv::Archived<K>, &'tx rkyv::Archived<V>)> + use<'tx, 'env, TX, K, V> where
 		rkyv::Archived<K>: 'tx,
 		rkyv::Archived<V>: 'tx,
 	{
-		struct Cursor<'tx, TX: Transaction, K, V>(lmdb::Cursor<'tx, TX>, PhantomData<(K, V)>);
+		struct Cursor<'tx, TX, K, V>(lmdb::Cursor<'tx, TX>, PhantomData<(K, V)>);
 
-		impl<'tx, TX, K, V> Iterator for Cursor<'tx, TX, K, V> where
-			TX: Transaction,
+		impl<'tx, 'env: 'tx, TX, K, V> Iterator for Cursor<'tx, TX, K, V> where
+			TX: Transaction<'env>,
 			K: rkyv::Archive,
 			V: rkyv::Archive,
 			rkyv::Archived<K>: 'tx + for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
@@ -104,14 +113,14 @@ impl<'tx, TX, K, V> AssocTable<'tx, TX, K, V> where
 	}
 
 	#[throws]
-	pub fn iter_rev(&self) -> impl Iterator<Item = (&'tx rkyv::Archived<K>, &'tx rkyv::Archived<V>)> where
+	pub fn iter_rev(&self) -> impl Iterator<Item = (&'tx rkyv::Archived<K>, &'tx rkyv::Archived<V>)> + use<'tx, 'env, TX, K, V> where
 		rkyv::Archived<K>: 'tx,
 		rkyv::Archived<V>: 'tx,
 	{
-		struct Cursor<'tx, TX: Transaction, K, V>(lmdb::Cursor<'tx, TX>, PhantomData<(K, V)>);
+		struct Cursor<'tx, TX, K, V>(lmdb::Cursor<'tx, TX>, PhantomData<(K, V)>);
 
-		impl<'tx, TX, K, V> Iterator for Cursor<'tx, TX, K, V> where
-			TX: Transaction,
+		impl<'tx, 'env: 'tx, TX, K, V> Iterator for Cursor<'tx, TX, K, V> where
+			TX: Transaction<'env>,
 			K: rkyv::Archive,
 			V: rkyv::Archive,
 			rkyv::Archived<K>: 'tx + for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,

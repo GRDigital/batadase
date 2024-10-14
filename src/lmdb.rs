@@ -61,7 +61,7 @@ impl<'a> Val<'a> {
 		Self(sys::MDB_val { mv_size: buf.len(), mv_data: buf.as_mut_ptr().cast() }, std::marker::PhantomData)
 	}
 
-	fn new_outparam<'tx: 'a>(_tx: &'tx impl Transaction) -> Self {
+	fn new_outparam<'tx: 'a, 'env: 'tx>(_tx: &'tx impl Transaction<'env>) -> Self {
 		Self(sys::MDB_val { mv_size: 0, mv_data: std::ptr::null_mut() }, std::marker::PhantomData)
 	}
 
@@ -80,11 +80,13 @@ impl std::ops::DerefMut for Val<'_> {
 	fn deref_mut(&mut self) -> &mut Self::Target { &mut self.0 }
 }
 
-pub(super) struct Cursor<'tx, TX: Transaction>(*mut sys::MDB_cursor, &'tx TX);
-unsafe impl<TX: Transaction> Send for Cursor<'_, TX> {}
-unsafe impl<TX: Transaction> Sync for Cursor<'_, TX> {}
+pub(super) struct Cursor<'tx, TX>(*mut sys::MDB_cursor, &'tx TX);
+unsafe impl<TX> Send for Cursor<'_, TX> {}
+unsafe impl<TX> Sync for Cursor<'_, TX> {}
 
-impl<'tx, TX: Transaction> Cursor<'tx, TX> {
+impl<'tx, 'env: 'tx, TX> Cursor<'tx, TX> where
+	TX: Transaction<'env>,
+{
 	#[throws]
 	pub(super) fn open(tx: &'tx TX, dbi: sys::MDB_dbi) -> Self {
 		let mut cursor = std::ptr::null_mut();
@@ -114,7 +116,7 @@ impl<'tx, TX: Transaction> Cursor<'tx, TX> {
 	}
 }
 
-impl<TX: Transaction> Drop for Cursor<'_, TX> {
+impl<TX> Drop for Cursor<'_, TX> {
 	fn drop(&mut self) {
 		unsafe { sys::mdb_cursor_close(self.0) };
 	}
@@ -136,7 +138,7 @@ pub(super) fn drop(tx: &RwTxn, dbi: sys::MDB_dbi) {
 }
 
 #[throws]
-pub(super) fn get(tx: &impl Transaction, dbi: sys::MDB_dbi, key: impl AsMut<[u8]>) -> Option<&[u8]> {
+pub(super) fn get<'tx, 'env: 'tx>(tx: &'tx impl Transaction<'env>, dbi: sys::MDB_dbi, key: impl AsMut<[u8]>) -> Option<&'tx [u8]> {
 	let mut value = Val::new_outparam(tx);
 	if !error::handle_get_code(unsafe { sys::mdb_get(tx.raw(), dbi, &mut *Val::from_buf(key), &mut *value) })? { return None; }
 	Some(value.as_slice())
