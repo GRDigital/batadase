@@ -31,6 +31,10 @@ pub mod index_table;
 pub mod assoc_table;
 pub mod index_poly_table;
 pub mod assoc_poly_table;
+pub use assoc_table::AssocTable;
+pub use index_poly_table::IndexPolyTable;
+pub use index_table::IndexTable;
+pub use assoc_poly_table::AssocPolyTable;
 
 pub trait Table<TX: Transaction> {
 	fn dbi(&self) -> lmdb_sys::MDB_dbi;
