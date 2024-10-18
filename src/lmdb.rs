@@ -104,6 +104,19 @@ impl<'tx, 'env: 'tx, TX> Cursor<'tx, TX> where
 		))
 	}
 
+	// flags must not include CursorOpFlags::Set because that doesn't change key
+	pub(super) fn get_with_key(&mut self, key_in: &mut [u8], flags: CursorOpFlags) -> Option<(&'tx [u8], &'tx [u8])> {
+		let mut key = Val::new_outparam(self.1);
+		key.mv_size = key_in.len();
+		key.mv_data = key_in.as_mut_ptr().cast();
+		let mut value = Val::new_outparam(self.1);
+		if !error::handle_cursor_get_code(unsafe { sys::mdb_cursor_get(self.0, &mut *key, &mut *value, flags as _) }) { return None }
+		Some((
+			key.as_slice(),
+			value.as_slice(),
+		))
+	}
+
 	pub(super) fn get_with_u64_key(&mut self, flags: CursorOpFlags) -> Option<(u64, &'tx [u8])> {
 		let mut key = Val::new_outparam(self.1);
 		let mut value = Val::new_outparam(self.1);

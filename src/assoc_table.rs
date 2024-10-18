@@ -22,6 +22,39 @@ impl<'tx, 'env: 'tx, TX, K, V> Table<'tx, 'env, TX> for AssocTable<'tx, TX, K, V
 	}
 }
 
+fn archived_from_cursor_get<'tx, K, V>(get: Option<(&'tx [u8], &'tx [u8])>) -> Option<(&'tx rkyv::Archived<K>, &'tx rkyv::Archived<V>)> where
+	K: rkyv::Archive,
+	V: rkyv::Archive,
+	rkyv::Archived<K>: 'tx + for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
+	rkyv::Archived<V>: 'tx + for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
+{
+	let (key_bytes, value_bytes) = get?;
+	let key = match rkyv::access::<rkyv::Archived<K>, _>(key_bytes) {
+		Ok(x) => x,
+		Err(e) => { log::error!("Error deserializing key in cursor: {e:?}"); return None; }
+	};
+	let value = match rkyv::access::<rkyv::Archived<V>, _>(value_bytes) {
+		Ok(x) => x,
+		Err(e) => { log::error!("Error deserializing value in cursor: {e:?}"); return None; }
+	};
+	Some((key, value))
+}
+
+struct Cursor<'tx, TX, K, V>(lmdb::Cursor<'tx, TX>, lmdb::CursorOpFlags, PhantomData<(K, V)>);
+impl<'tx, 'env: 'tx, TX, K, V> Iterator for Cursor<'tx, TX, K, V> where
+	TX: Transaction<'env>,
+	K: rkyv::Archive,
+	V: rkyv::Archive,
+	rkyv::Archived<K>: 'tx + for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
+	rkyv::Archived<V>: 'tx + for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
+{
+	type Item = (&'tx rkyv::Archived<K>, &'tx rkyv::Archived<V>);
+
+	fn next(&mut self) -> Option<(&'tx rkyv::Archived<K>, &'tx rkyv::Archived<V>)> {
+		archived_from_cursor_get::<'tx, K, V>(self.0.get(self.1))
+	}
+}
+
 // RwTxn only, so all methods mutate
 impl<'tx, K, V> AssocTable<'tx, RwTxn<'tx>, K, V> where
 	K: rkyv::Archive + for <'a> rkyv::Serialize<RkyvSer<'a>>,
@@ -84,32 +117,18 @@ impl<'tx, 'env: 'tx, TX, K, V> AssocTable<'tx, TX, K, V> where
 		rkyv::Archived<K>: 'tx,
 		rkyv::Archived<V>: 'tx,
 	{
-		struct Cursor<'tx, TX, K, V>(lmdb::Cursor<'tx, TX>, PhantomData<(K, V)>);
+		Cursor::<TX, K, V>(lmdb::Cursor::open(self.tx, self.dbi)?, lmdb::CursorOpFlags::Next, PhantomData)
+	}
 
-		impl<'tx, 'env: 'tx, TX, K, V> Iterator for Cursor<'tx, TX, K, V> where
-			TX: Transaction<'env>,
-			K: rkyv::Archive,
-			V: rkyv::Archive,
-			rkyv::Archived<K>: 'tx + for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
-			rkyv::Archived<V>: 'tx + for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
-		{
-			type Item = (&'tx rkyv::Archived<K>, &'tx rkyv::Archived<V>);
-
-			fn next(&mut self) -> Option<(&'tx rkyv::Archived<K>, &'tx rkyv::Archived<V>)> {
-				let (key_bytes, value_bytes) = self.0.get(lmdb::CursorOpFlags::Next)?;
-				let key = match rkyv::access::<rkyv::Archived<K>, _>(key_bytes) {
-					Ok(x) => x,
-					Err(e) => { log::error!("Error deserializing key in cursor: {e:?}"); return None; }
-				};
-				let value = match rkyv::access::<rkyv::Archived<V>, _>(value_bytes) {
-					Ok(x) => x,
-					Err(e) => { log::error!("Error deserializing value in cursor: {e:?}"); return None; }
-				};
-				Some((key, value))
-			}
-		}
-
-		Cursor::<TX, K, V>(lmdb::Cursor::open(self.tx, self.dbi)?, PhantomData)
+	#[throws]
+	pub fn iter_from(&self, key: &K) -> impl Iterator<Item = (&'tx rkyv::Archived<K>, &'tx rkyv::Archived<V>)> + use<'tx, 'env, TX, K, V> where
+		rkyv::Archived<K>: 'tx,
+		rkyv::Archived<V>: 'tx,
+	{
+		let mut key_bytes = rkyv::to_bytes(key)?;
+		let mut cursor = lmdb::Cursor::open(self.tx, self.dbi)?;
+		archived_from_cursor_get::<'tx, K, V>(cursor.get_with_key(&mut key_bytes, lmdb::CursorOpFlags::SetRange)).into_iter()
+			.chain(Cursor::<TX, K, V>(cursor, lmdb::CursorOpFlags::Next, PhantomData))
 	}
 
 	#[throws]
@@ -117,31 +136,17 @@ impl<'tx, 'env: 'tx, TX, K, V> AssocTable<'tx, TX, K, V> where
 		rkyv::Archived<K>: 'tx,
 		rkyv::Archived<V>: 'tx,
 	{
-		struct Cursor<'tx, TX, K, V>(lmdb::Cursor<'tx, TX>, PhantomData<(K, V)>);
+		Cursor::<TX, K, V>(lmdb::Cursor::open(self.tx, self.dbi)?, lmdb::CursorOpFlags::Prev, PhantomData)
+	}
 
-		impl<'tx, 'env: 'tx, TX, K, V> Iterator for Cursor<'tx, TX, K, V> where
-			TX: Transaction<'env>,
-			K: rkyv::Archive,
-			V: rkyv::Archive,
-			rkyv::Archived<K>: 'tx + for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
-			rkyv::Archived<V>: 'tx + for <'a> rkyv::bytecheck::CheckBytes<RkyvVal<'a>>,
-		{
-			type Item = (&'tx rkyv::Archived<K>, &'tx rkyv::Archived<V>);
-
-			fn next(&mut self) -> Option<(&'tx rkyv::Archived<K>, &'tx rkyv::Archived<V>)> {
-				let (key_bytes, value_bytes) = self.0.get(lmdb::CursorOpFlags::Prev)?;
-				let key = match rkyv::access::<rkyv::Archived<K>, _>(key_bytes) {
-					Ok(x) => x,
-					Err(e) => { log::error!("Error deserializing key in rev cursor: {e:?}"); return None; }
-				};
-				let value = match rkyv::access::<rkyv::Archived<V>, _>(value_bytes) {
-					Ok(x) => x,
-					Err(e) => { log::error!("Error deserializing value in rev cursor: {e:?}"); return None; }
-				};
-				Some((key, value))
-			}
-		}
-
-		Cursor::<TX, K, V>(lmdb::Cursor::open(self.tx, self.dbi)?, PhantomData)
+	#[throws]
+	pub fn iter_rev_from(&self, key: &K) -> impl Iterator<Item = (&'tx rkyv::Archived<K>, &'tx rkyv::Archived<V>)> + use<'tx, 'env, TX, K, V> where
+		rkyv::Archived<K>: 'tx,
+		rkyv::Archived<V>: 'tx,
+	{
+		let mut key_bytes = rkyv::to_bytes(key)?;
+		let mut cursor = lmdb::Cursor::open(self.tx, self.dbi)?;
+		let _ = cursor.get_with_key(&mut key_bytes, lmdb::CursorOpFlags::SetRange);
+		Cursor::<TX, K, V>(cursor, lmdb::CursorOpFlags::Prev, PhantomData)
 	}
 }
